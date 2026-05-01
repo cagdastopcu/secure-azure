@@ -67,7 +67,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   properties: {
     tenantId: subscription().tenantId
     enableRbacAuthorization: true
-    enableSoftDelete: true
+    // Soft-delete is enabled by default for modern Key Vaults; retention window is set below.
     enablePurgeProtection: true
     softDeleteRetentionInDays: 90
     sku: {
