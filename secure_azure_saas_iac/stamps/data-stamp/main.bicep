@@ -53,6 +53,22 @@ param redisSkuFamily string = 'C'
 @description('Redis capacity (size tier index).')
 param redisCapacity int = 1
 
+@description('If true, deploy private Azure SQL server + database.')
+param deploySql bool = false
+
+@description('SQL server name suffix.')
+param sqlServerNameSuffix string = 'sql'
+
+@description('SQL database name.')
+param sqlDatabaseName string = 'appdb'
+
+@description('SQL admin login name (required when deploySql=true).')
+param sqlAdminLogin string = 'sqladminuser'
+
+@secure()
+@description('SQL admin password (required when deploySql=true).')
+param sqlAdminPassword string = ''
+
 @description('Tags to apply to all resources.')
 param tags object = {}
 
@@ -109,6 +125,34 @@ resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2023-01-01-prev
     deadLetteringOnMessageExpiration: true
     requiresDuplicateDetection: false
     enableBatchedOperations: true
+  }
+}
+
+resource sqlServer 'Microsoft.Sql/servers@2023-08-01' = if (deploySql) {
+  name: toLower(replace('${projectPrefix}-${environment}-${sqlServerNameSuffix}', '_', '-'))
+  location: location
+  tags: tags
+  properties: {
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    version: '12.0'
+    // Security: force modern transport and disable public endpoint.
+    minimalTlsVersion: '1.2'
+    publicNetworkAccess: 'Disabled'
+  }
+}
+
+resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = if (deploySql) {
+  parent: sqlServer
+  name: sqlDatabaseName
+  location: location
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+    capacity: 5
+  }
+  properties: {
+    collation: 'SQL_Latin1_General_CP1_CI_AS'
   }
 }
 
@@ -190,6 +234,28 @@ resource serviceBusPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-0
   }
 }
 
+resource sqlPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = if (deploySql) {
+  name: '${sqlServer.name}-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetResourceId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'sql-connection'
+        properties: {
+          privateLinkServiceId: sqlServer.id
+          groupIds: [
+            'sqlServer'
+          ]
+        }
+      }
+    ]
+  }
+}
+
 resource redisPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = if (deployRedis) {
   name: '${redisCache.name}-pe'
   location: location
@@ -246,6 +312,12 @@ resource serviceBusPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01'
   tags: tags
 }
 
+resource sqlPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (deploySql) {
+  name: 'privatelink.database.windows.net'
+  location: 'global'
+  tags: tags
+}
+
 resource redisPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (deployRedis) {
   name: 'privatelink.redis.cache.windows.net'
   location: 'global'
@@ -271,6 +343,17 @@ resource storageDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
 
 resource serviceBusDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: 'privatelink.servicebus.windows.net/${projectPrefix}-${environment}-sb-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnetResourceId
+    }
+  }
+}
+
+resource sqlDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (deploySql) {
+  name: 'privatelink.database.windows.net/${projectPrefix}-${environment}-sql-dns-link'
   location: 'global'
   properties: {
     registrationEnabled: false
@@ -330,6 +413,20 @@ resource serviceBusPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDns
   }
 }
 
+resource sqlPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (deploySql) {
+  name: '${sqlPrivateEndpoint.name}/default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'sql-dns-config'
+        properties: {
+          privateDnsZoneId: sqlPrivateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
 resource redisPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (deployRedis) {
   name: '${redisPrivateEndpoint.name}/default'
   properties: {
@@ -365,3 +462,5 @@ output storageAccountId string = storageAccount.id
 output serviceBusNamespaceId string = serviceBusNamespace.id
 output eventGridTopicResourceId string = deployEventGrid ? eventGridTopic.id : ''
 output redisCacheResourceId string = deployRedis ? redisCache.id : ''
+output sqlServerResourceId string = deploySql ? sqlServer.id : ''
+output sqlDatabaseResourceId string = deploySql ? sqlDatabase.id : ''

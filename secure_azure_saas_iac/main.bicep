@@ -80,6 +80,22 @@ param redisSkuFamily string = 'C'
 @description('Redis capacity index.')
 param redisCapacity int = 1
 
+@description('If true, deploy private Azure SQL in data stamp.')
+param deploySql bool = false
+
+@description('SQL server name suffix.')
+param sqlServerNameSuffix string = 'sql'
+
+@description('SQL database name.')
+param sqlDatabaseName string = 'appdb'
+
+@description('SQL admin login name (used only when deploySql=true).')
+param sqlAdminLogin string = 'sqladminuser'
+
+@secure()
+@description('SQL admin password (required when deploySql=true).')
+param sqlAdminPassword string = ''
+
 @description('If true, enable Defender for Cloud plans at subscription scope.')
 param deployDefenderOnboarding bool = true
 
@@ -183,6 +199,11 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     redisSkuName: redisSkuName
     redisSkuFamily: redisSkuFamily
     redisCapacity: redisCapacity
+    deploySql: deploySql
+    sqlServerNameSuffix: sqlServerNameSuffix
+    sqlDatabaseName: sqlDatabaseName
+    sqlAdminLogin: sqlAdminLogin
+    sqlAdminPassword: sqlAdminPassword
     tags: tags
   }
 }
@@ -227,6 +248,8 @@ output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serv
 output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
 output eventGridTopicResourceId string = deployDataStamp ? dataStamp.outputs.eventGridTopicResourceId : ''
 output redisCacheResourceId string = deployDataStamp ? dataStamp.outputs.redisCacheResourceId : ''
+output sqlServerResourceId string = deployDataStamp ? dataStamp.outputs.sqlServerResourceId : ''
+output sqlDatabaseResourceId string = deployDataStamp ? dataStamp.outputs.sqlDatabaseResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
