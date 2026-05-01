@@ -1,0 +1,851 @@
+# Every Line Explanation
+
+This document explains every code line in the IaC implementation and related CI/test scripts.
+
+## File: `main.bicep`
+
+- L1: `// Root orchestrator template.` - Inline comment describing intent, behavior, or security rationale.
+- L2: `// This file composes platform baseline modules (monitoring, network, policy)` - Inline comment describing intent, behavior, or security rationale.
+- L3: `// and an application stamp module (ACA + Key Vault + identities + apps).` - Inline comment describing intent, behavior, or security rationale.
+- L4: `targetScope = 'resourceGroup'` - Declares deployment scope used by ARM for this template/module.
+- L5: `` - Blank line for readability and separation of logical blocks.
+- L6: `@description('Primary deployment location for regional resources.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L7: `// Uses RG location by default to reduce accidental cross-region drift.` - Inline comment describing intent, behavior, or security rationale.
+- L8: `param location string = resourceGroup().location` - Declares an input parameter consumed by this template/module.
+- L9: `` - Blank line for readability and separation of logical blocks.
+- L10: `@description('Environment name.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L11: `@allowed([` - Bicep decorator: constrains accepted parameter values.
+- L12: `  // Allowed values intentionally limited to standard SDLC lifecycle tiers.` - Inline comment describing intent, behavior, or security rationale.
+- L13: `  'dev'` - Implements structure, value assignment, or nested configuration within the current block.
+- L14: `  'test'` - Implements structure, value assignment, or nested configuration within the current block.
+- L15: `  'prod'` - Implements structure, value assignment, or nested configuration within the current block.
+- L16: `])` - Implements structure, value assignment, or nested configuration within the current block.
+- L17: `param environment string = 'dev'` - Declares an input parameter consumed by this template/module.
+- L18: `` - Blank line for readability and separation of logical blocks.
+- L19: `@description('Project prefix for naming.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L20: `// Prefix appears in resource names to support ownership discovery and cost allocation.` - Inline comment describing intent, behavior, or security rationale.
+- L21: `param projectPrefix string = 'saas'` - Declares an input parameter consumed by this template/module.
+- L22: `` - Blank line for readability and separation of logical blocks.
+- L23: `@description('Virtual network address space.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L24: `// Parent CIDR for all workload subnets in this deployment.` - Inline comment describing intent, behavior, or security rationale.
+- L25: `param vnetAddressPrefix string = '10.40.0.0/16'` - Declares an input parameter consumed by this template/module.
+- L26: `` - Blank line for readability and separation of logical blocks.
+- L27: `@description('Subnet for Container Apps infrastructure.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L28: `// /23 (or larger) recommended for ACA environment infrastructure growth.` - Inline comment describing intent, behavior, or security rationale.
+- L29: `param acaInfraSubnetPrefix string = '10.40.0.0/23'` - Declares an input parameter consumed by this template/module.
+- L30: `` - Blank line for readability and separation of logical blocks.
+- L31: `@description('Subnet for private endpoints.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L32: `// Dedicated PE subnet keeps private service interfaces isolated.` - Inline comment describing intent, behavior, or security rationale.
+- L33: `param privateEndpointSubnetPrefix string = '10.40.2.0/24'` - Declares an input parameter consumed by this template/module.
+- L34: `` - Blank line for readability and separation of logical blocks.
+- L35: `@description('Log Analytics retention in days.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L36: `// Keep default retention moderate; raise for compliance/audit requirements.` - Inline comment describing intent, behavior, or security rationale.
+- L37: `param logRetentionInDays int = 30` - Declares an input parameter consumed by this template/module.
+- L38: `` - Blank line for readability and separation of logical blocks.
+- L39: `@description('Container app image to deploy as bootstrap app.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L40: `// Sample image only; replace with enterprise-controlled image registry for production.` - Inline comment describing intent, behavior, or security rationale.
+- L41: `param bootstrapContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'` - Declares an input parameter consumed by this template/module.
+- L42: `` - Blank line for readability and separation of logical blocks.
+- L43: `@description('Allowed CIDR ranges for public web app ingress. Use narrow corporate ranges in production.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L44: `param allowedIngressCidrs array = [` - Declares an input parameter consumed by this template/module.
+- L45: `  // Security default: do not expose to all internet by default.` - Inline comment describing intent, behavior, or security rationale.
+- L46: `  // Provide explicit trusted CIDRs when enablePublicWebIngress is true.` - Inline comment describing intent, behavior, or security rationale.
+- L47: `  '10.0.0.0/8'` - Implements structure, value assignment, or nested configuration within the current block.
+- L48: `]` - Implements structure, value assignment, or nested configuration within the current block.
+- L49: `` - Blank line for readability and separation of logical blocks.
+- L50: `@description('If true, web app is internet-facing. If false, web app is internal-only inside ACA environment.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L51: `// Security default: internal-only. Public exposure must be explicit.` - Inline comment describing intent, behavior, or security rationale.
+- L52: `param enablePublicWebIngress bool = false` - Declares an input parameter consumed by this template/module.
+- L53: `` - Blank line for readability and separation of logical blocks.
+- L54: `var tags = {` - Declares a computed variable used for naming, IDs, or composition.
+- L55: `  // Shared governance tags propagated to all resources.` - Inline comment describing intent, behavior, or security rationale.
+- L56: `  environment: environment` - Implements structure, value assignment, or nested configuration within the current block.
+- L57: `  project: projectPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L58: `  managedBy: 'bicep'` - Implements structure, value assignment, or nested configuration within the current block.
+- L59: `  workload: 'saas-platform'` - Implements structure, value assignment, or nested configuration within the current block.
+- L60: `}` - Closes the current object/block scope.
+- L61: `` - Blank line for readability and separation of logical blocks.
+- L62: `// Monitoring first so workspace outputs can be consumed by the ACA stamp.` - Inline comment describing intent, behavior, or security rationale.
+- L63: `module monitoring './platform/monitoring/main.bicep' = {` - Invokes a child Bicep module and passes required parameters.
+- L64: `  name: 'monitoring-${projectPrefix}-${environment}'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L65: `  params: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L66: `    location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L67: `    projectPrefix: projectPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L68: `    environment: environment` - Implements structure, value assignment, or nested configuration within the current block.
+- L69: `    retentionInDays: logRetentionInDays` - Implements structure, value assignment, or nested configuration within the current block.
+- L70: `    tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L71: `  }` - Closes the current object/block scope.
+- L72: `}` - Closes the current object/block scope.
+- L73: `` - Blank line for readability and separation of logical blocks.
+- L74: `// Network baseline before workload deployment; provides subnet IDs.` - Inline comment describing intent, behavior, or security rationale.
+- L75: `module network './platform/network/main.bicep' = {` - Invokes a child Bicep module and passes required parameters.
+- L76: `  name: 'network-${projectPrefix}-${environment}'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L77: `  params: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L78: `    location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L79: `    projectPrefix: projectPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L80: `    environment: environment` - Implements structure, value assignment, or nested configuration within the current block.
+- L81: `    vnetAddressPrefix: vnetAddressPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L82: `    acaInfraSubnetPrefix: acaInfraSubnetPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L83: `    privateEndpointSubnetPrefix: privateEndpointSubnetPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L84: `    tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L85: `  }` - Closes the current object/block scope.
+- L86: `}` - Closes the current object/block scope.
+- L87: `` - Blank line for readability and separation of logical blocks.
+- L88: `` - Blank line for readability and separation of logical blocks.
+- L89: `// Policy baseline for regional restrictions and mandatory tags.` - Inline comment describing intent, behavior, or security rationale.
+- L90: `module securityBaseline './platform/policy/security-baseline.bicep' = {` - Invokes a child Bicep module and passes required parameters.
+- L91: `  name: 'policy-${projectPrefix}-${environment}'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L92: `  params: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L93: `    location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L94: `    allowedLocations: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L95: `      location` - Implements structure, value assignment, or nested configuration within the current block.
+- L96: `    ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L97: `    environmentTagValue: environment` - Implements structure, value assignment, or nested configuration within the current block.
+- L98: `    projectTagValue: projectPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L99: `    managedByTagValue: 'bicep'` - Implements structure, value assignment, or nested configuration within the current block.
+- L100: `  }` - Closes the current object/block scope.
+- L101: `}` - Closes the current object/block scope.
+- L102: `// Application stamp; depends on monitoring/network outputs for secure wiring.` - Inline comment describing intent, behavior, or security rationale.
+- L103: `module acaStamp './stamps/aca-stamp/main.bicep' = {` - Invokes a child Bicep module and passes required parameters.
+- L104: `  name: 'aca-stamp-${projectPrefix}-${environment}'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L105: `  params: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L106: `    location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L107: `    projectPrefix: projectPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L108: `    environment: environment` - Implements structure, value assignment, or nested configuration within the current block.
+- L109: `    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L110: `    logAnalyticsSharedKey: monitoring.outputs.logAnalyticsPrimarySharedKey` - Implements structure, value assignment, or nested configuration within the current block.
+- L111: `    infrastructureSubnetResourceId: network.outputs.acaInfraSubnetResourceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L112: `    privateEndpointSubnetResourceId: network.outputs.privateEndpointSubnetResourceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L113: `    containerImage: bootstrapContainerImage` - Implements structure, value assignment, or nested configuration within the current block.
+- L114: `    enablePublicWebIngress: enablePublicWebIngress` - Implements structure, value assignment, or nested configuration within the current block.
+- L115: `    allowedIngressCidrs: allowedIngressCidrs` - Implements structure, value assignment, or nested configuration within the current block.
+- L116: `    tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L117: `  }` - Closes the current object/block scope.
+- L118: `}` - Closes the current object/block scope.
+- L119: `` - Blank line for readability and separation of logical blocks.
+- L120: `// Useful outputs for operators and pipeline post-deploy steps.` - Inline comment describing intent, behavior, or security rationale.
+- L121: `// These are safe metadata outputs (not secrets).` - Inline comment describing intent, behavior, or security rationale.
+- L122: `output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName` - Exports a value for operators or downstream module consumption.
+- L123: `output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName` - Exports a value for operators or downstream module consumption.
+- L124: `output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn` - Exports a value for operators or downstream module consumption.
+- L125: `` - Blank line for readability and separation of logical blocks.
+- L126: `` - Blank line for readability and separation of logical blocks.
+
+## File: `platform\network\main.bicep`
+
+- L1: `// Network baseline module.` - Inline comment describing intent, behavior, or security rationale.
+- L2: `// Creates one VNet with:` - Inline comment describing intent, behavior, or security rationale.
+- L3: `// - delegated subnet for Azure Container Apps environment infrastructure` - Inline comment describing intent, behavior, or security rationale.
+- L4: `// - subnet for private endpoints` - Inline comment describing intent, behavior, or security rationale.
+- L5: `targetScope = 'resourceGroup'` - Declares deployment scope used by ARM for this template/module.
+- L6: `` - Blank line for readability and separation of logical blocks.
+- L7: `// Deployment region for all network resources in this module.` - Inline comment describing intent, behavior, or security rationale.
+- L8: `param location string` - Declares an input parameter consumed by this template/module.
+- L9: `// Naming and ownership context.` - Inline comment describing intent, behavior, or security rationale.
+- L10: `param projectPrefix string` - Declares an input parameter consumed by this template/module.
+- L11: `param environment string` - Declares an input parameter consumed by this template/module.
+- L12: `// Network ranges provided by root template.` - Inline comment describing intent, behavior, or security rationale.
+- L13: `param vnetAddressPrefix string` - Declares an input parameter consumed by this template/module.
+- L14: `param acaInfraSubnetPrefix string` - Declares an input parameter consumed by this template/module.
+- L15: `param privateEndpointSubnetPrefix string` - Declares an input parameter consumed by this template/module.
+- L16: `// Governance tags propagated from root.` - Inline comment describing intent, behavior, or security rationale.
+- L17: `param tags object = {}` - Declares an input parameter consumed by this template/module.
+- L18: `` - Blank line for readability and separation of logical blocks.
+- L19: `var vnetName = '${projectPrefix}-${environment}-vnet'` - Declares a computed variable used for naming, IDs, or composition.
+- L20: `var acaInfraSubnetName = 'snet-aca-infra'` - Declares a computed variable used for naming, IDs, or composition.
+- L21: `var privateEndpointSubnetName = 'snet-private-endpoints'` - Declares a computed variable used for naming, IDs, or composition.
+- L22: `` - Blank line for readability and separation of logical blocks.
+- L23: `// Single VNet is used as the private boundary for the stamp.` - Inline comment describing intent, behavior, or security rationale.
+- L24: `resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L25: `  name: vnetName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L26: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L27: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L28: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L29: `    addressSpace: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L30: `      addressPrefixes: [vnetAddressPrefix]` - Implements structure, value assignment, or nested configuration within the current block.
+- L31: `    }` - Closes the current object/block scope.
+- L32: `    subnets: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L33: `      {` - Opens a new object/block scope.
+- L34: `        // ACA environment requires subnet delegation to Microsoft.App/environments.` - Inline comment describing intent, behavior, or security rationale.
+- L35: `        // Without delegation, ACA environment deployment fails.` - Inline comment describing intent, behavior, or security rationale.
+- L36: `        name: acaInfraSubnetName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L37: `        properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L38: `          addressPrefix: acaInfraSubnetPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L39: `          delegations: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L40: `            {` - Opens a new object/block scope.
+- L41: `              name: 'aca-delegation'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L42: `              properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L43: `                serviceName: 'Microsoft.App/environments'` - Implements structure, value assignment, or nested configuration within the current block.
+- L44: `              }` - Closes the current object/block scope.
+- L45: `            }` - Closes the current object/block scope.
+- L46: `          ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L47: `        }` - Closes the current object/block scope.
+- L48: `      }` - Closes the current object/block scope.
+- L49: `      {` - Opens a new object/block scope.
+- L50: `        // Private endpoint policies disabled as required for PE subnet.` - Inline comment describing intent, behavior, or security rationale.
+- L51: `        // This is necessary for Private Endpoint NIC attachment behavior.` - Inline comment describing intent, behavior, or security rationale.
+- L52: `        name: privateEndpointSubnetName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L53: `        properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L54: `          addressPrefix: privateEndpointSubnetPrefix` - Implements structure, value assignment, or nested configuration within the current block.
+- L55: `          privateEndpointNetworkPolicies: 'Disabled'` - Implements structure, value assignment, or nested configuration within the current block.
+- L56: `        }` - Closes the current object/block scope.
+- L57: `      }` - Closes the current object/block scope.
+- L58: `    ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L59: `  }` - Closes the current object/block scope.
+- L60: `}` - Closes the current object/block scope.
+- L61: `` - Blank line for readability and separation of logical blocks.
+- L62: `// Output IDs are consumed by other modules instead of hardcoding names.` - Inline comment describing intent, behavior, or security rationale.
+- L63: `output vnetName string = vnet.name` - Exports a value for operators or downstream module consumption.
+- L64: `output acaInfraSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, acaInfraSubnetName)` - Exports a value for operators or downstream module consumption.
+- L65: `output privateEndpointSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)` - Exports a value for operators or downstream module consumption.
+
+## File: `platform\monitoring\main.bicep`
+
+- L1: `// Monitoring baseline module.` - Inline comment describing intent, behavior, or security rationale.
+- L2: `// Creates centralized Log Analytics and workspace-based Application Insights.` - Inline comment describing intent, behavior, or security rationale.
+- L3: `targetScope = 'resourceGroup'` - Declares deployment scope used by ARM for this template/module.
+- L4: `` - Blank line for readability and separation of logical blocks.
+- L5: `// Region for monitoring resources.` - Inline comment describing intent, behavior, or security rationale.
+- L6: `param location string` - Declares an input parameter consumed by this template/module.
+- L7: `// Naming context.` - Inline comment describing intent, behavior, or security rationale.
+- L8: `param projectPrefix string` - Declares an input parameter consumed by this template/module.
+- L9: `param environment string` - Declares an input parameter consumed by this template/module.
+- L10: `@minValue(30)` - Bicep decorator: enforces minimum numeric parameter value.
+- L11: `@maxValue(730)` - Bicep decorator: enforces maximum numeric parameter value.
+- L12: `// Retention bounds enforce baseline observability retention window.` - Inline comment describing intent, behavior, or security rationale.
+- L13: `param retentionInDays int = 30` - Declares an input parameter consumed by this template/module.
+- L14: `// Governance tags propagated from root.` - Inline comment describing intent, behavior, or security rationale.
+- L15: `param tags object = {}` - Declares an input parameter consumed by this template/module.
+- L16: `` - Blank line for readability and separation of logical blocks.
+- L17: `var workspaceName = '${projectPrefix}-${environment}-law'` - Declares a computed variable used for naming, IDs, or composition.
+- L18: `var appInsightsName = '${projectPrefix}-${environment}-appi'` - Declares a computed variable used for naming, IDs, or composition.
+- L19: `` - Blank line for readability and separation of logical blocks.
+- L20: `// Core log store for platform and app telemetry.` - Inline comment describing intent, behavior, or security rationale.
+- L21: `resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L22: `  name: workspaceName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L23: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L24: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L25: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L26: `    // PerGB2018 is common pay-as-you-go SKU for log ingestion.` - Inline comment describing intent, behavior, or security rationale.
+- L27: `    sku: { name: 'PerGB2018' }` - Implements structure, value assignment, or nested configuration within the current block.
+- L28: `    retentionInDays: retentionInDays` - Implements structure, value assignment, or nested configuration within the current block.
+- L29: `    features: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L30: `      // Security: use RBAC/resource permissions over legacy workspace-level ACL model.` - Inline comment describing intent, behavior, or security rationale.
+- L31: `      enableLogAccessUsingOnlyResourcePermissions: true` - Implements structure, value assignment, or nested configuration within the current block.
+- L32: `    }` - Closes the current object/block scope.
+- L33: `  }` - Closes the current object/block scope.
+- L34: `}` - Closes the current object/block scope.
+- L35: `` - Blank line for readability and separation of logical blocks.
+- L36: `// App Insights linked to Log Analytics for unified querying.` - Inline comment describing intent, behavior, or security rationale.
+- L37: `resource appInsights 'Microsoft.Insights/components@2020-02-02' = {` - Declares an Azure resource instance with API version and configuration.
+- L38: `  name: appInsightsName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L39: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L40: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L41: `  kind: 'web'` - Implements structure, value assignment, or nested configuration within the current block.
+- L42: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L43: `    // Web app telemetry profile.` - Inline comment describing intent, behavior, or security rationale.
+- L44: `    Application_Type: 'web'` - Implements structure, value assignment, or nested configuration within the current block.
+- L45: `    // Workspace-based mode centralizes telemetry and governance.` - Inline comment describing intent, behavior, or security rationale.
+- L46: `    WorkspaceResourceId: logAnalytics.id` - Implements structure, value assignment, or nested configuration within the current block.
+- L47: `    IngestionMode: 'LogAnalytics'` - Implements structure, value assignment, or nested configuration within the current block.
+- L48: `  }` - Closes the current object/block scope.
+- L49: `}` - Closes the current object/block scope.
+- L50: `` - Blank line for readability and separation of logical blocks.
+- L51: `// Outputs used by downstream modules/pipelines.` - Inline comment describing intent, behavior, or security rationale.
+- L52: `output logAnalyticsWorkspaceId string = logAnalytics.id` - Exports a value for operators or downstream module consumption.
+- L53: `output logAnalyticsWorkspaceName string = logAnalytics.name` - Exports a value for operators or downstream module consumption.
+- L54: `output logAnalyticsPrimarySharedKey string = listKeys(logAnalytics.id, '2023-09-01').primarySharedKey` - Exports a value for operators or downstream module consumption.
+- L55: `output appInsightsConnectionString string = appInsights.properties.ConnectionString` - Exports a value for operators or downstream module consumption.
+
+## File: `platform\policy\security-baseline.bicep`
+
+- L1: `// Resource-group scoped governance baseline.` - Inline comment describing intent, behavior, or security rationale.
+- L2: `// Uses Azure built-in policies for:` - Inline comment describing intent, behavior, or security rationale.
+- L3: `// - allowed regions` - Inline comment describing intent, behavior, or security rationale.
+- L4: `// - required tags with expected values` - Inline comment describing intent, behavior, or security rationale.
+- L5: `targetScope = 'resourceGroup'` - Declares deployment scope used by ARM for this template/module.
+- L6: `` - Blank line for readability and separation of logical blocks.
+- L7: `@description('Location for policy assignment metadata.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L8: `// Policy assignment resources require explicit location.` - Inline comment describing intent, behavior, or security rationale.
+- L9: `param location string = resourceGroup().location` - Declares an input parameter consumed by this template/module.
+- L10: `` - Blank line for readability and separation of logical blocks.
+- L11: `@description('Allowed Azure regions for resource deployments.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L12: `// Keep this allow-list short to enforce residency/compliance boundaries.` - Inline comment describing intent, behavior, or security rationale.
+- L13: `param allowedLocations array = [` - Declares an input parameter consumed by this template/module.
+- L14: `  'westeurope'` - Implements structure, value assignment, or nested configuration within the current block.
+- L15: `]` - Implements structure, value assignment, or nested configuration within the current block.
+- L16: `` - Blank line for readability and separation of logical blocks.
+- L17: `@description('Environment tag value expected on resources.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L18: `param environmentTagValue string` - Declares an input parameter consumed by this template/module.
+- L19: `` - Blank line for readability and separation of logical blocks.
+- L20: `@description('Project tag value expected on resources.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L21: `param projectTagValue string` - Declares an input parameter consumed by this template/module.
+- L22: `` - Blank line for readability and separation of logical blocks.
+- L23: `@description('Managed-by tag value expected on resources.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L24: `param managedByTagValue string = 'bicep'` - Declares an input parameter consumed by this template/module.
+- L25: `` - Blank line for readability and separation of logical blocks.
+- L26: `var allowedLocationsPolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c'` - Declares a computed variable used for naming, IDs, or composition.
+- L27: `var requireTagAndValuePolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/2a0e14a6-b0a6-4fab-991a-187a4f81c498'` - Declares a computed variable used for naming, IDs, or composition.
+- L28: `// Verify built-in policy IDs periodically; Microsoft can evolve definitions over time.` - Inline comment describing intent, behavior, or security rationale.
+- L29: `` - Blank line for readability and separation of logical blocks.
+- L30: `// Restrict deployment geography to approved regions.` - Inline comment describing intent, behavior, or security rationale.
+- L31: `resource allowedLocationsAssignment 'Microsoft.Authorization/policyAssignments@2025-03-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L32: `  name: 'alz-allowed-locations'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L33: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L34: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L35: `    displayName: 'Allow deployments only in approved regions'` - Implements structure, value assignment, or nested configuration within the current block.
+- L36: `    description: 'Restricts resource creation to an approved list of Azure regions.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L37: `    policyDefinitionId: allowedLocationsPolicyDefinitionId` - Implements structure, value assignment, or nested configuration within the current block.
+- L38: `    enforcementMode: 'Default'` - Implements structure, value assignment, or nested configuration within the current block.
+- L39: `    parameters: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L40: `      listOfAllowedLocations: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L41: `        value: allowedLocations` - Implements structure, value assignment, or nested configuration within the current block.
+- L42: `      }` - Closes the current object/block scope.
+- L43: `    }` - Closes the current object/block scope.
+- L44: `  }` - Closes the current object/block scope.
+- L45: `}` - Closes the current object/block scope.
+- L46: `` - Blank line for readability and separation of logical blocks.
+- L47: `// Enforce environment tag consistency.` - Inline comment describing intent, behavior, or security rationale.
+- L48: `resource requireEnvironmentTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L49: `  name: 'alz-require-environment-tag'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L50: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L51: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L52: `    displayName: 'Require environment tag and value'` - Implements structure, value assignment, or nested configuration within the current block.
+- L53: `    description: 'Ensures all resources include the expected environment tag value.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L54: `    policyDefinitionId: requireTagAndValuePolicyDefinitionId` - Implements structure, value assignment, or nested configuration within the current block.
+- L55: `    enforcementMode: 'Default'` - Implements structure, value assignment, or nested configuration within the current block.
+- L56: `    parameters: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L57: `      tagName: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L58: `        value: 'environment'` - Implements structure, value assignment, or nested configuration within the current block.
+- L59: `      }` - Closes the current object/block scope.
+- L60: `      tagValue: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L61: `        value: environmentTagValue` - Implements structure, value assignment, or nested configuration within the current block.
+- L62: `      }` - Closes the current object/block scope.
+- L63: `    }` - Closes the current object/block scope.
+- L64: `  }` - Closes the current object/block scope.
+- L65: `}` - Closes the current object/block scope.
+- L66: `` - Blank line for readability and separation of logical blocks.
+- L67: `// Enforce project tag consistency.` - Inline comment describing intent, behavior, or security rationale.
+- L68: `resource requireProjectTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L69: `  name: 'alz-require-project-tag'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L70: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L71: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L72: `    displayName: 'Require project tag and value'` - Implements structure, value assignment, or nested configuration within the current block.
+- L73: `    description: 'Ensures all resources include the expected project tag value.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L74: `    policyDefinitionId: requireTagAndValuePolicyDefinitionId` - Implements structure, value assignment, or nested configuration within the current block.
+- L75: `    enforcementMode: 'Default'` - Implements structure, value assignment, or nested configuration within the current block.
+- L76: `    parameters: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L77: `      tagName: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L78: `        value: 'project'` - Implements structure, value assignment, or nested configuration within the current block.
+- L79: `      }` - Closes the current object/block scope.
+- L80: `      tagValue: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L81: `        value: projectTagValue` - Implements structure, value assignment, or nested configuration within the current block.
+- L82: `      }` - Closes the current object/block scope.
+- L83: `    }` - Closes the current object/block scope.
+- L84: `  }` - Closes the current object/block scope.
+- L85: `}` - Closes the current object/block scope.
+- L86: `` - Blank line for readability and separation of logical blocks.
+- L87: `// Enforce managedBy tag consistency.` - Inline comment describing intent, behavior, or security rationale.
+- L88: `resource requireManagedByTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L89: `  name: 'alz-require-managedby-tag'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L90: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L91: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L92: `    displayName: 'Require managedBy tag and value'` - Implements structure, value assignment, or nested configuration within the current block.
+- L93: `    description: 'Ensures all resources include the expected managedBy tag value.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L94: `    policyDefinitionId: requireTagAndValuePolicyDefinitionId` - Implements structure, value assignment, or nested configuration within the current block.
+- L95: `    enforcementMode: 'Default'` - Implements structure, value assignment, or nested configuration within the current block.
+- L96: `    parameters: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L97: `      tagName: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L98: `        value: 'managedBy'` - Implements structure, value assignment, or nested configuration within the current block.
+- L99: `      }` - Closes the current object/block scope.
+- L100: `      tagValue: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L101: `        value: managedByTagValue` - Implements structure, value assignment, or nested configuration within the current block.
+- L102: `      }` - Closes the current object/block scope.
+- L103: `    }` - Closes the current object/block scope.
+- L104: `  }` - Closes the current object/block scope.
+- L105: `}` - Closes the current object/block scope.
+- L106: `` - Blank line for readability and separation of logical blocks.
+- L107: `// Expose assignment names for operations/reporting.` - Inline comment describing intent, behavior, or security rationale.
+- L108: `output policyAssignments array = [` - Exports a value for operators or downstream module consumption.
+- L109: `  allowedLocationsAssignment.name` - Implements structure, value assignment, or nested configuration within the current block.
+- L110: `  requireEnvironmentTag.name` - Implements structure, value assignment, or nested configuration within the current block.
+- L111: `  requireProjectTag.name` - Implements structure, value assignment, or nested configuration within the current block.
+- L112: `  requireManagedByTag.name` - Implements structure, value assignment, or nested configuration within the current block.
+- L113: `]` - Implements structure, value assignment, or nested configuration within the current block.
+
+## File: `stamps\aca-stamp\main.bicep`
+
+- L1: `// Application stamp module.` - Inline comment describing intent, behavior, or security rationale.
+- L2: `// Provisions one secure runtime slice with:` - Inline comment describing intent, behavior, or security rationale.
+- L3: `// - Azure Container Apps environment` - Inline comment describing intent, behavior, or security rationale.
+- L4: `// - Key Vault + private endpoint` - Inline comment describing intent, behavior, or security rationale.
+- L5: `// - user-assigned identities` - Inline comment describing intent, behavior, or security rationale.
+- L6: `// - public web app + internal worker app` - Inline comment describing intent, behavior, or security rationale.
+- L7: `targetScope = 'resourceGroup'` - Declares deployment scope used by ARM for this template/module.
+- L8: `` - Blank line for readability and separation of logical blocks.
+- L9: `param location string` - Declares an input parameter consumed by this template/module.
+- L10: `param projectPrefix string` - Declares an input parameter consumed by this template/module.
+- L11: `param environment string` - Declares an input parameter consumed by this template/module.
+- L12: `// Resource ID of centralized Log Analytics workspace used by ACA environment logs.` - Inline comment describing intent, behavior, or security rationale.
+- L13: `param logAnalyticsWorkspaceId string` - Declares an input parameter consumed by this template/module.
+- L14: `@secure()` - Bicep decorator: marks value as sensitive to reduce exposure in deployment metadata.
+- L15: `// Shared key is sensitive; secure() prevents accidental plaintext exposure in deployment metadata.` - Inline comment describing intent, behavior, or security rationale.
+- L16: `param logAnalyticsSharedKey string` - Declares an input parameter consumed by this template/module.
+- L17: `// Subnet delegated to ACA managed environment infrastructure.` - Inline comment describing intent, behavior, or security rationale.
+- L18: `param infrastructureSubnetResourceId string` - Declares an input parameter consumed by this template/module.
+- L19: `// Subnet dedicated for private endpoint NIC placement.` - Inline comment describing intent, behavior, or security rationale.
+- L20: `param privateEndpointSubnetResourceId string` - Declares an input parameter consumed by this template/module.
+- L21: `// Image URI for both web and worker containers in this baseline stamp.` - Inline comment describing intent, behavior, or security rationale.
+- L22: `param containerImage string` - Declares an input parameter consumed by this template/module.
+- L23: `@description('Controls whether the web app is publicly reachable. Keep false unless you intentionally publish internet endpoints.')` - Bicep decorator: documents parameter purpose in template metadata.
+- L24: `param enablePublicWebIngress bool = false` - Declares an input parameter consumed by this template/module.
+- L25: `param allowedIngressCidrs array` - Declares an input parameter consumed by this template/module.
+- L26: `param tags object = {}` - Declares an input parameter consumed by this template/module.
+- L27: `` - Blank line for readability and separation of logical blocks.
+- L28: `var acaEnvironmentName = '${projectPrefix}-${environment}-acae'` - Declares a computed variable used for naming, IDs, or composition.
+- L29: `var keyVaultName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(subscription().id, resourceGroup().name)}-kv', '_', '-'))` - Declares a computed variable used for naming, IDs, or composition.
+- L30: `var webAppName = '${projectPrefix}-${environment}-web'` - Declares a computed variable used for naming, IDs, or composition.
+- L31: `var workerAppName = '${projectPrefix}-${environment}-worker'` - Declares a computed variable used for naming, IDs, or composition.
+- L32: `// Derive parent VNet id from subnet id for private DNS zone linking.` - Inline comment describing intent, behavior, or security rationale.
+- L33: `var vnetResourceId = split(infrastructureSubnetResourceId, '/subnets/')[0]` - Declares a computed variable used for naming, IDs, or composition.
+- L34: `` - Blank line for readability and separation of logical blocks.
+- L35: `// ACA environment attached to delegated subnet and Log Analytics workspace.` - Inline comment describing intent, behavior, or security rationale.
+- L36: `resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L37: `  name: acaEnvironmentName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L38: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L39: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L40: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L41: `    vnetConfiguration: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L42: `      infrastructureSubnetId: infrastructureSubnetResourceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L43: `      internal: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L44: `    }` - Closes the current object/block scope.
+- L45: `    appLogsConfiguration: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L46: `      destination: 'log-analytics'` - Implements structure, value assignment, or nested configuration within the current block.
+- L47: `      logAnalyticsConfiguration: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L48: `        customerId: reference(logAnalyticsWorkspaceId, '2023-09-01').customerId` - Implements structure, value assignment, or nested configuration within the current block.
+- L49: `        sharedKey: logAnalyticsSharedKey` - Implements structure, value assignment, or nested configuration within the current block.
+- L50: `      }` - Closes the current object/block scope.
+- L51: `    }` - Closes the current object/block scope.
+- L52: `    workloadProfiles: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L53: `      {` - Opens a new object/block scope.
+- L54: `        name: 'Consumption'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L55: `        workloadProfileType: 'Consumption'` - Implements structure, value assignment, or nested configuration within the current block.
+- L56: `      }` - Closes the current object/block scope.
+- L57: `    ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L58: `  }` - Closes the current object/block scope.
+- L59: `}` - Closes the current object/block scope.
+- L60: `` - Blank line for readability and separation of logical blocks.
+- L61: `// Key Vault configured with RBAC, soft-delete, and purge-protection.` - Inline comment describing intent, behavior, or security rationale.
+- L62: `// Public network is disabled; private endpoint path is enforced.` - Inline comment describing intent, behavior, or security rationale.
+- L63: `resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L64: `  name: keyVaultName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L65: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L66: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L67: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L68: `    tenantId: subscription().tenantId` - Implements structure, value assignment, or nested configuration within the current block.
+- L69: `    enableRbacAuthorization: true` - Implements structure, value assignment, or nested configuration within the current block.
+- L70: `    // Soft-delete is enabled by default for modern Key Vaults; retention window is set below.` - Inline comment describing intent, behavior, or security rationale.
+- L71: `    enablePurgeProtection: true` - Implements structure, value assignment, or nested configuration within the current block.
+- L72: `    softDeleteRetentionInDays: 90` - Implements structure, value assignment, or nested configuration within the current block.
+- L73: `    sku: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L74: `      family: 'A'` - Implements structure, value assignment, or nested configuration within the current block.
+- L75: `      name: 'standard'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L76: `    }` - Closes the current object/block scope.
+- L77: `    // Security hardening: disable public endpoint access entirely.` - Inline comment describing intent, behavior, or security rationale.
+- L78: `    // Access is forced through private endpoint.` - Inline comment describing intent, behavior, or security rationale.
+- L79: `    publicNetworkAccess: 'Disabled'` - Implements structure, value assignment, or nested configuration within the current block.
+- L80: `    networkAcls: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L81: `      // Security hardening: no broad trusted-service bypass.` - Inline comment describing intent, behavior, or security rationale.
+- L82: `      // This reduces unintended data-plane exposure.` - Inline comment describing intent, behavior, or security rationale.
+- L83: `      bypass: 'None'` - Implements structure, value assignment, or nested configuration within the current block.
+- L84: `      defaultAction: 'Deny'` - Implements structure, value assignment, or nested configuration within the current block.
+- L85: `      // Explicitly empty lists to avoid accidental broad rules via inheritance assumptions.` - Inline comment describing intent, behavior, or security rationale.
+- L86: `      ipRules: []` - Implements structure, value assignment, or nested configuration within the current block.
+- L87: `      virtualNetworkRules: []` - Implements structure, value assignment, or nested configuration within the current block.
+- L88: `    }` - Closes the current object/block scope.
+- L89: `  }` - Closes the current object/block scope.
+- L90: `}` - Closes the current object/block scope.
+- L91: `` - Blank line for readability and separation of logical blocks.
+- L92: `// Dedicated identities per app support least-privilege role assignments.` - Inline comment describing intent, behavior, or security rationale.
+- L93: `resource webIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {` - Declares an Azure resource instance with API version and configuration.
+- L94: `  name: '${webAppName}-id'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L95: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L96: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L97: `}` - Closes the current object/block scope.
+- L98: `` - Blank line for readability and separation of logical blocks.
+- L99: `resource workerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {` - Declares an Azure resource instance with API version and configuration.
+- L100: `  name: '${workerAppName}-id'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L101: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L102: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L103: `}` - Closes the current object/block scope.
+- L104: `` - Blank line for readability and separation of logical blocks.
+- L105: `// Grant web app identity read-only secret access in Key Vault.` - Inline comment describing intent, behavior, or security rationale.
+- L106: `resource kvSecretsUserWeb 'Microsoft.Authorization/roleAssignments@2022-04-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L107: `  name: guid(keyVault.id, webIdentity.properties.principalId, 'KeyVaultSecretsUser')` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L108: `  scope: keyVault` - Implements structure, value assignment, or nested configuration within the current block.
+- L109: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L110: `    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')` - Implements structure, value assignment, or nested configuration within the current block.
+- L111: `    principalId: webIdentity.properties.principalId` - Implements structure, value assignment, or nested configuration within the current block.
+- L112: `    principalType: 'ServicePrincipal'` - Implements structure, value assignment, or nested configuration within the current block.
+- L113: `  }` - Closes the current object/block scope.
+- L114: `}` - Closes the current object/block scope.
+- L115: `` - Blank line for readability and separation of logical blocks.
+- L116: `// Grant worker app identity read-only secret access in Key Vault.` - Inline comment describing intent, behavior, or security rationale.
+- L117: `resource kvSecretsUserWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L118: `  name: guid(keyVault.id, workerIdentity.properties.principalId, 'KeyVaultSecretsUser')` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L119: `  scope: keyVault` - Implements structure, value assignment, or nested configuration within the current block.
+- L120: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L121: `    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')` - Implements structure, value assignment, or nested configuration within the current block.
+- L122: `    principalId: workerIdentity.properties.principalId` - Implements structure, value assignment, or nested configuration within the current block.
+- L123: `    principalType: 'ServicePrincipal'` - Implements structure, value assignment, or nested configuration within the current block.
+- L124: `  }` - Closes the current object/block scope.
+- L125: `}` - Closes the current object/block scope.
+- L126: `` - Blank line for readability and separation of logical blocks.
+- L127: `// Internet-facing app. CIDR list is parameterized for stricter production controls.` - Inline comment describing intent, behavior, or security rationale.
+- L128: `resource webApp 'Microsoft.App/containerApps@2025-01-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L129: `  name: webAppName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L130: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L131: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L132: `  identity: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L133: `    type: 'UserAssigned'` - Implements structure, value assignment, or nested configuration within the current block.
+- L134: `    userAssignedIdentities: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L135: `      '${webIdentity.id}': {}` - Implements structure, value assignment, or nested configuration within the current block.
+- L136: `    }` - Closes the current object/block scope.
+- L137: `  }` - Closes the current object/block scope.
+- L138: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L139: `    managedEnvironmentId: acaEnvironment.id` - Implements structure, value assignment, or nested configuration within the current block.
+- L140: `    configuration: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L141: `      ingress: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L142: `        // Security hardening: internal-only by default.` - Inline comment describing intent, behavior, or security rationale.
+- L143: `        external: enablePublicWebIngress` - Implements structure, value assignment, or nested configuration within the current block.
+- L144: `        // Security hardening: reject plain HTTP and force TLS at ingress edge.` - Inline comment describing intent, behavior, or security rationale.
+- L145: `        // This prevents credential/token leakage over cleartext transport.` - Inline comment describing intent, behavior, or security rationale.
+- L146: `        allowInsecure: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L147: `        targetPort: 80` - Implements structure, value assignment, or nested configuration within the current block.
+- L148: `        transport: 'auto'` - Implements structure, value assignment, or nested configuration within the current block.
+- L149: `        // Security hardening: when public ingress is enabled, explicitly allow only trusted CIDRs.` - Inline comment describing intent, behavior, or security rationale.
+- L150: `        ipSecurityRestrictions: [for cidr in allowedIngressCidrs: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L151: `          // One allow rule generated per CIDR input.` - Inline comment describing intent, behavior, or security rationale.
+- L152: `          name: 'allow-${replace(cidr, '/', '-')}'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L153: `          action: 'Allow'` - Implements structure, value assignment, or nested configuration within the current block.
+- L154: `          ipAddressRange: cidr` - Implements structure, value assignment, or nested configuration within the current block.
+- L155: `        }]` - Closes the current object/block scope.
+- L156: `      }` - Closes the current object/block scope.
+- L157: `      activeRevisionsMode: 'Single'` - Implements structure, value assignment, or nested configuration within the current block.
+- L158: `    }` - Closes the current object/block scope.
+- L159: `    template: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L160: `      scale: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L161: `        // Non-zero baseline replica keeps endpoint warm; tune for cost/perf needs.` - Inline comment describing intent, behavior, or security rationale.
+- L162: `        minReplicas: 1` - Implements structure, value assignment, or nested configuration within the current block.
+- L163: `        maxReplicas: 10` - Implements structure, value assignment, or nested configuration within the current block.
+- L164: `      }` - Closes the current object/block scope.
+- L165: `      containers: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L166: `        {` - Opens a new object/block scope.
+- L167: `          name: 'web'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L168: `          image: containerImage` - Implements structure, value assignment, or nested configuration within the current block.
+- L169: `          resources: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L170: `            cpu: json('0.5')` - Implements structure, value assignment, or nested configuration within the current block.
+- L171: `            memory: '1Gi'` - Implements structure, value assignment, or nested configuration within the current block.
+- L172: `          }` - Closes the current object/block scope.
+- L173: `          env: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L174: `            {` - Opens a new object/block scope.
+- L175: `              name: 'AZURE_CLIENT_ID'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L176: `              value: webIdentity.properties.clientId` - Implements structure, value assignment, or nested configuration within the current block.
+- L177: `            }` - Closes the current object/block scope.
+- L178: `            {` - Opens a new object/block scope.
+- L179: `              name: 'KEYVAULT_URI'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L180: `              value: keyVault.properties.vaultUri` - Implements structure, value assignment, or nested configuration within the current block.
+- L181: `            }` - Closes the current object/block scope.
+- L182: `          ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L183: `        }` - Closes the current object/block scope.
+- L184: `      ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L185: `    }` - Closes the current object/block scope.
+- L186: `  }` - Closes the current object/block scope.
+- L187: `}` - Closes the current object/block scope.
+- L188: `` - Blank line for readability and separation of logical blocks.
+- L189: `// Internal-only worker app for background processing.` - Inline comment describing intent, behavior, or security rationale.
+- L190: `resource workerApp 'Microsoft.App/containerApps@2025-01-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L191: `  name: workerAppName` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L192: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L193: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L194: `  identity: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L195: `    type: 'UserAssigned'` - Implements structure, value assignment, or nested configuration within the current block.
+- L196: `    userAssignedIdentities: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L197: `      '${workerIdentity.id}': {}` - Implements structure, value assignment, or nested configuration within the current block.
+- L198: `    }` - Closes the current object/block scope.
+- L199: `  }` - Closes the current object/block scope.
+- L200: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L201: `    managedEnvironmentId: acaEnvironment.id` - Implements structure, value assignment, or nested configuration within the current block.
+- L202: `    configuration: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L203: `      ingress: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L204: `        // Worker path is never internet-facing in this baseline.` - Inline comment describing intent, behavior, or security rationale.
+- L205: `        external: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L206: `        // Security hardening: even internal ingress should enforce encrypted transport semantics.` - Inline comment describing intent, behavior, or security rationale.
+- L207: `        allowInsecure: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L208: `        targetPort: 8080` - Implements structure, value assignment, or nested configuration within the current block.
+- L209: `        transport: 'auto'` - Implements structure, value assignment, or nested configuration within the current block.
+- L210: `      }` - Closes the current object/block scope.
+- L211: `      activeRevisionsMode: 'Single'` - Implements structure, value assignment, or nested configuration within the current block.
+- L212: `    }` - Closes the current object/block scope.
+- L213: `    template: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L214: `      scale: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L215: `        // Conservative worker scaling defaults; adjust to queue/workload behavior.` - Inline comment describing intent, behavior, or security rationale.
+- L216: `        minReplicas: 1` - Implements structure, value assignment, or nested configuration within the current block.
+- L217: `        maxReplicas: 5` - Implements structure, value assignment, or nested configuration within the current block.
+- L218: `      }` - Closes the current object/block scope.
+- L219: `      containers: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L220: `        {` - Opens a new object/block scope.
+- L221: `          name: 'worker'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L222: `          image: containerImage` - Implements structure, value assignment, or nested configuration within the current block.
+- L223: `          resources: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L224: `            cpu: json('0.25')` - Implements structure, value assignment, or nested configuration within the current block.
+- L225: `            memory: '0.5Gi'` - Implements structure, value assignment, or nested configuration within the current block.
+- L226: `          }` - Closes the current object/block scope.
+- L227: `          env: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L228: `            {` - Opens a new object/block scope.
+- L229: `              name: 'AZURE_CLIENT_ID'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L230: `              value: workerIdentity.properties.clientId` - Implements structure, value assignment, or nested configuration within the current block.
+- L231: `            }` - Closes the current object/block scope.
+- L232: `            {` - Opens a new object/block scope.
+- L233: `              name: 'KEYVAULT_URI'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L234: `              value: keyVault.properties.vaultUri` - Implements structure, value assignment, or nested configuration within the current block.
+- L235: `            }` - Closes the current object/block scope.
+- L236: `          ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L237: `        }` - Closes the current object/block scope.
+- L238: `      ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L239: `    }` - Closes the current object/block scope.
+- L240: `  }` - Closes the current object/block scope.
+- L241: `}` - Closes the current object/block scope.
+- L242: `` - Blank line for readability and separation of logical blocks.
+- L243: `// Private endpoint maps Key Vault to the private endpoint subnet.` - Inline comment describing intent, behavior, or security rationale.
+- L244: `resource kvPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L245: `  name: '${keyVaultName}-pe'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L246: `  location: location` - Sets Azure region/metadata location for the resource or assignment.
+- L247: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L248: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L249: `    subnet: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L250: `      id: privateEndpointSubnetResourceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L251: `    }` - Closes the current object/block scope.
+- L252: `    privateLinkServiceConnections: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L253: `      {` - Opens a new object/block scope.
+- L254: `        name: 'keyvault-connection'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L255: `        properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L256: `          privateLinkServiceId: keyVault.id` - Implements structure, value assignment, or nested configuration within the current block.
+- L257: `          groupIds: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L258: `            'vault'` - Implements structure, value assignment, or nested configuration within the current block.
+- L259: `          ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L260: `        }` - Closes the current object/block scope.
+- L261: `      }` - Closes the current object/block scope.
+- L262: `    ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L263: `  }` - Closes the current object/block scope.
+- L264: `}` - Closes the current object/block scope.
+- L265: `` - Blank line for readability and separation of logical blocks.
+- L266: `// Private DNS zone required so workloads resolve Key Vault hostname to private IP.` - Inline comment describing intent, behavior, or security rationale.
+- L267: `resource kvPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L268: `  name: 'privatelink.vaultcore.azure.net'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L269: `  location: 'global'` - Sets Azure region/metadata location for the resource or assignment.
+- L270: `  tags: tags` - Implements structure, value assignment, or nested configuration within the current block.
+- L271: `}` - Closes the current object/block scope.
+- L272: `` - Blank line for readability and separation of logical blocks.
+- L273: `// Link private DNS zone to VNet hosting the ACA environment.` - Inline comment describing intent, behavior, or security rationale.
+- L274: `resource kvDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L275: `  name: 'privatelink.vaultcore.azure.net/${projectPrefix}-${environment}-kv-dns-link'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L276: `  location: 'global'` - Sets Azure region/metadata location for the resource or assignment.
+- L277: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L278: `    registrationEnabled: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L279: `    virtualNetwork: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L280: `      id: vnetResourceId` - Implements structure, value assignment, or nested configuration within the current block.
+- L281: `    }` - Closes the current object/block scope.
+- L282: `  }` - Closes the current object/block scope.
+- L283: `}` - Closes the current object/block scope.
+- L284: `` - Blank line for readability and separation of logical blocks.
+- L285: `// Attach the private endpoint to the Key Vault private DNS zone.` - Inline comment describing intent, behavior, or security rationale.
+- L286: `resource kvPrivateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {` - Declares an Azure resource instance with API version and configuration.
+- L287: `  name: '${kvPrivateEndpoint.name}/default'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L288: `  properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L289: `    privateDnsZoneConfigs: [` - Implements structure, value assignment, or nested configuration within the current block.
+- L290: `      {` - Opens a new object/block scope.
+- L291: `        name: 'kv-dns-config'` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L292: `        properties: {` - Implements structure, value assignment, or nested configuration within the current block.
+- L293: `          privateDnsZoneId: kvPrivateDnsZone.id` - Implements structure, value assignment, or nested configuration within the current block.
+- L294: `        }` - Closes the current object/block scope.
+- L295: `      }` - Closes the current object/block scope.
+- L296: `    ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L297: `  }` - Closes the current object/block scope.
+- L298: `}` - Closes the current object/block scope.
+- L299: `` - Blank line for readability and separation of logical blocks.
+- L300: `// Operational outputs.` - Inline comment describing intent, behavior, or security rationale.
+- L301: `output containerAppsEnvironmentName string = acaEnvironment.name` - Exports a value for operators or downstream module consumption.
+- L302: `output webContainerAppFqdn string = webApp.properties.configuration.ingress.fqdn` - Exports a value for operators or downstream module consumption.
+- L303: `output keyVaultName string = keyVault.name` - Exports a value for operators or downstream module consumption.
+
+## File: `pipelines\github-actions-iac.yml`
+
+- L1: `# CI workflow for infrastructure validation.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L2: `# Uses GitHub OIDC -> Azure login (secretless auth pattern).` - YAML/Markdown-style comment documenting workflow intent or control.
+- L3: `name: iac-deploy` - Sets resource/workflow/job/step name used by Azure or CI metadata.
+- L4: `` - Blank line for readability and separation of logical blocks.
+- L5: `on:` - Defines workflow triggers (events that start CI execution).
+- L6: `  workflow_dispatch:` - Implements structure, value assignment, or nested configuration within the current block.
+- L7: `  pull_request:` - Implements structure, value assignment, or nested configuration within the current block.
+- L8: `    # Support both legacy and current default branch names.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L9: `    branches: [ main, master ]` - Implements structure, value assignment, or nested configuration within the current block.
+- L10: `` - Blank line for readability and separation of logical blocks.
+- L11: `concurrency:` - Implements structure, value assignment, or nested configuration within the current block.
+- L12: `  # Security/ops hardening: prevent overlapping infrastructure validations on same branch.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L13: `  group: iac-${{ github.workflow }}-${{ github.ref }}` - Implements structure, value assignment, or nested configuration within the current block.
+- L14: `  cancel-in-progress: true` - Implements structure, value assignment, or nested configuration within the current block.
+- L15: `` - Blank line for readability and separation of logical blocks.
+- L16: `permissions:` - Defines GitHub token permission scope for least-privilege CI access.
+- L17: `  # Required for OIDC federation token issuance.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L18: `  id-token: write` - Implements structure, value assignment, or nested configuration within the current block.
+- L19: `  # Required to read repository content.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L20: `  contents: read` - Implements structure, value assignment, or nested configuration within the current block.
+- L21: `` - Blank line for readability and separation of logical blocks.
+- L22: `jobs:` - Starts workflow job definitions executed by GitHub Actions.
+- L23: `  static-tests:` - Implements structure, value assignment, or nested configuration within the current block.
+- L24: `    runs-on: ubuntu-latest` - Implements structure, value assignment, or nested configuration within the current block.
+- L25: `    timeout-minutes: 15` - Implements structure, value assignment, or nested configuration within the current block.
+- L26: `    steps:` - Starts sequential execution steps for a workflow job.
+- L27: `      - uses: actions/checkout@v4` - Implements structure, value assignment, or nested configuration within the current block.
+- L28: `        with:` - Starts argument block for an action invocation.
+- L29: `          persist-credentials: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L30: `          fetch-depth: 1` - Implements structure, value assignment, or nested configuration within the current block.
+- L31: `` - Blank line for readability and separation of logical blocks.
+- L32: `      - name: Azure CLI check` - Implements structure, value assignment, or nested configuration within the current block.
+- L33: `        run: az version` - Implements structure, value assignment, or nested configuration within the current block.
+- L34: `` - Blank line for readability and separation of logical blocks.
+- L35: `      - name: Run Bicep compile tests` - Implements structure, value assignment, or nested configuration within the current block.
+- L36: `        shell: pwsh` - Implements structure, value assignment, or nested configuration within the current block.
+- L37: `        run: |` - Starts a multi-line shell script block for this CI step.
+- L38: `          Set-StrictMode -Version Latest` - Implements structure, value assignment, or nested configuration within the current block.
+- L39: `          $ErrorActionPreference = 'Stop'` - Implements structure, value assignment, or nested configuration within the current block.
+- L40: `          ./secure_azure_saas_iac/tests/scripts/validate-iac.ps1` - Implements structure, value assignment, or nested configuration within the current block.
+- L41: `` - Blank line for readability and separation of logical blocks.
+- L42: `      - name: Run security assertions` - Implements structure, value assignment, or nested configuration within the current block.
+- L43: `        shell: pwsh` - Implements structure, value assignment, or nested configuration within the current block.
+- L44: `        run: |` - Starts a multi-line shell script block for this CI step.
+- L45: `          Set-StrictMode -Version Latest` - Implements structure, value assignment, or nested configuration within the current block.
+- L46: `          $ErrorActionPreference = 'Stop'` - Implements structure, value assignment, or nested configuration within the current block.
+- L47: `          ./secure_azure_saas_iac/tests/scripts/assert-security.ps1` - Implements structure, value assignment, or nested configuration within the current block.
+- L48: `` - Blank line for readability and separation of logical blocks.
+- L49: `  validate-and-whatif:` - Implements structure, value assignment, or nested configuration within the current block.
+- L50: `    needs: [static-tests]` - Implements structure, value assignment, or nested configuration within the current block.
+- L51: `    # Hosted Linux runner; deterministic environment for az cli usage.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L52: `    runs-on: ubuntu-latest` - Implements structure, value assignment, or nested configuration within the current block.
+- L53: `    # Security/ops hardening: keep token lifetime and runner exposure window short.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L54: `    timeout-minutes: 20` - Implements structure, value assignment, or nested configuration within the current block.
+- L55: `    env:` - Implements structure, value assignment, or nested configuration within the current block.
+- L56: `      # Security hardening: avoid printing command outputs that might include sensitive values.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L57: `      AZURE_CORE_OUTPUT: none` - Implements structure, value assignment, or nested configuration within the current block.
+- L58: `      AZURE_LOCATION: westeurope` - Implements structure, value assignment, or nested configuration within the current block.
+- L59: `      RESOURCE_GROUP: rg-saas-dev-platform` - Implements structure, value assignment, or nested configuration within the current block.
+- L60: `    steps:` - Starts sequential execution steps for a workflow job.
+- L61: `      # Pull repository content into runner workspace.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L62: `      # Further hardening option: pin to full commit SHA instead of major tag.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L63: `      - uses: actions/checkout@v4` - Implements structure, value assignment, or nested configuration within the current block.
+- L64: `        with:` - Starts argument block for an action invocation.
+- L65: `          # Security hardening: do not persist token creds in git config for later steps.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L66: `          persist-credentials: false` - Implements structure, value assignment, or nested configuration within the current block.
+- L67: `          # Security hardening: least history required for validation job.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L68: `          fetch-depth: 1` - Implements structure, value assignment, or nested configuration within the current block.
+- L69: `` - Blank line for readability and separation of logical blocks.
+- L70: `      - name: Azure Login (OIDC)` - Implements structure, value assignment, or nested configuration within the current block.
+- L71: `        # Further hardening option: pin this action to a full commit SHA.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L72: `        uses: azure/login@v2` - References a reusable GitHub Action.
+- L73: `        with:` - Starts argument block for an action invocation.
+- L74: `          client-id: ${{ secrets.AZURE_CLIENT_ID }}` - Implements structure, value assignment, or nested configuration within the current block.
+- L75: `          tenant-id: ${{ secrets.AZURE_TENANT_ID }}` - Implements structure, value assignment, or nested configuration within the current block.
+- L76: `          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}` - Implements structure, value assignment, or nested configuration within the current block.
+- L77: `` - Blank line for readability and separation of logical blocks.
+- L78: `      - name: Ensure resource group exists` - Implements structure, value assignment, or nested configuration within the current block.
+- L79: `        # Idempotent create; safe if resource group already exists.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L80: `        run: |` - Starts a multi-line shell script block for this CI step.
+- L81: `          set -euo pipefail` - Implements structure, value assignment, or nested configuration within the current block.
+- L82: `          az group create --name "$RESOURCE_GROUP" --location "$AZURE_LOCATION"` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L83: `` - Blank line for readability and separation of logical blocks.
+- L84: `      - name: Validate Bicep` - Implements structure, value assignment, or nested configuration within the current block.
+- L85: `        # Static + server-side ARM validation for template correctness.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L86: `        run: |` - Starts a multi-line shell script block for this CI step.
+- L87: `          set -euo pipefail` - Implements structure, value assignment, or nested configuration within the current block.
+- L88: `          az bicep install` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L89: `          az deployment group validate \` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L90: `            --resource-group "$RESOURCE_GROUP" \` - Implements structure, value assignment, or nested configuration within the current block.
+- L91: `            --template-file secure_azure_saas_iac/main.bicep \` - Implements structure, value assignment, or nested configuration within the current block.
+- L92: `            --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas` - Implements structure, value assignment, or nested configuration within the current block.
+- L93: `` - Blank line for readability and separation of logical blocks.
+- L94: `      - name: What-if` - Implements structure, value assignment, or nested configuration within the current block.
+- L95: `        # Change preview gate; helps detect destructive drift before apply.` - YAML/Markdown-style comment documenting workflow intent or control.
+- L96: `        run: |` - Starts a multi-line shell script block for this CI step.
+- L97: `          set -euo pipefail` - Implements structure, value assignment, or nested configuration within the current block.
+- L98: `          az deployment group what-if \` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L99: `            --resource-group "$RESOURCE_GROUP" \` - Implements structure, value assignment, or nested configuration within the current block.
+- L100: `            --template-file secure_azure_saas_iac/main.bicep \` - Implements structure, value assignment, or nested configuration within the current block.
+- L101: `            --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas` - Implements structure, value assignment, or nested configuration within the current block.
+
+## File: `tests\scripts\validate-iac.ps1`
+
+- L1: `param(` - Implements structure, value assignment, or nested configuration within the current block.
+- L2: `  [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path` - Implements structure, value assignment, or nested configuration within the current block.
+- L3: `)` - Implements structure, value assignment, or nested configuration within the current block.
+- L4: `` - Blank line for readability and separation of logical blocks.
+- L5: `$ErrorActionPreference = 'Stop'` - Implements structure, value assignment, or nested configuration within the current block.
+- L6: `` - Blank line for readability and separation of logical blocks.
+- L7: `function Require-Command {` - Declares a reusable function in the script.
+- L8: `  param([string]$Name)` - Implements structure, value assignment, or nested configuration within the current block.
+- L9: `  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {` - Starts conditional logic branch in script execution.
+- L10: `    throw "Required command not found: $Name"` - Raises an error intentionally to stop execution on invalid state.
+- L11: `  }` - Closes the current object/block scope.
+- L12: `}` - Closes the current object/block scope.
+- L13: `` - Blank line for readability and separation of logical blocks.
+- L14: `Require-Command -Name 'az'` - Implements structure, value assignment, or nested configuration within the current block.
+- L15: `` - Blank line for readability and separation of logical blocks.
+- L16: `Write-Host "[validate-iac] Installing/updating Bicep CLI via Azure CLI..."` - Prints execution progress/output message for operator visibility.
+- L17: `az bicep install | Out-Null` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L18: `` - Blank line for readability and separation of logical blocks.
+- L19: `$bicepFiles = Get-ChildItem -Path $IaCRoot -Recurse -Filter '*.bicep' -File` - Implements structure, value assignment, or nested configuration within the current block.
+- L20: `if (-not $bicepFiles) {` - Starts conditional logic branch in script execution.
+- L21: `  throw 'No .bicep files found to validate.'` - Raises an error intentionally to stop execution on invalid state.
+- L22: `}` - Closes the current object/block scope.
+- L23: `` - Blank line for readability and separation of logical blocks.
+- L24: `foreach ($file in $bicepFiles) {` - Starts iteration over a collection in script logic.
+- L25: `  Write-Host "[validate-iac] Building: $($file.FullName)"` - Prints execution progress/output message for operator visibility.
+- L26: `  az bicep build --file $file.FullName | Out-Null` - Invokes Azure CLI command against control plane for validation/deployment operations.
+- L27: `}` - Closes the current object/block scope.
+- L28: `` - Blank line for readability and separation of logical blocks.
+- L29: `Write-Host "[validate-iac] Success: all Bicep files compiled."` - Prints execution progress/output message for operator visibility.
+
+## File: `tests\scripts\assert-security.ps1`
+
+- L1: `param(` - Implements structure, value assignment, or nested configuration within the current block.
+- L2: `  [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path` - Implements structure, value assignment, or nested configuration within the current block.
+- L3: `)` - Implements structure, value assignment, or nested configuration within the current block.
+- L4: `` - Blank line for readability and separation of logical blocks.
+- L5: `$ErrorActionPreference = 'Stop'` - Implements structure, value assignment, or nested configuration within the current block.
+- L6: `` - Blank line for readability and separation of logical blocks.
+- L7: `function Assert-Contains {` - Declares a reusable function in the script.
+- L8: `  param(` - Implements structure, value assignment, or nested configuration within the current block.
+- L9: `    [string]$Path,` - Implements structure, value assignment, or nested configuration within the current block.
+- L10: `    [string]$Pattern,` - Implements structure, value assignment, or nested configuration within the current block.
+- L11: `    [string]$Message` - Implements structure, value assignment, or nested configuration within the current block.
+- L12: `  )` - Implements structure, value assignment, or nested configuration within the current block.
+- L13: `` - Blank line for readability and separation of logical blocks.
+- L14: `  $content = Get-Content -LiteralPath $Path -Raw` - Implements structure, value assignment, or nested configuration within the current block.
+- L15: `  if ($content -notmatch $Pattern) {` - Starts conditional logic branch in script execution.
+- L16: `    throw "[assert-security] FAIL: $Message'n  File: $Path'n  Pattern: $Pattern"` - Raises an error intentionally to stop execution on invalid state.
+- L17: `  }` - Closes the current object/block scope.
+- L18: `` - Blank line for readability and separation of logical blocks.
+- L19: `  Write-Host "[assert-security] PASS: $Message"` - Prints execution progress/output message for operator visibility.
+- L20: `}` - Closes the current object/block scope.
+- L21: `` - Blank line for readability and separation of logical blocks.
+- L22: `$stamp = Join-Path $IaCRoot 'stamps\aca-stamp\main.bicep'` - Implements structure, value assignment, or nested configuration within the current block.
+- L23: `$rootMain = Join-Path $IaCRoot 'main.bicep'` - Implements structure, value assignment, or nested configuration within the current block.
+- L24: `` - Blank line for readability and separation of logical blocks.
+- L25: `Assert-Contains -Path $rootMain -Pattern "param\s+enablePublicWebIngress\s+bool\s*=\s*false" -Message 'Public web ingress defaults to disabled.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L26: `Assert-Contains -Path $stamp -Pattern "publicNetworkAccess:\s*'Disabled'" -Message 'Key Vault public network access is disabled.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L27: `Assert-Contains -Path $stamp -Pattern "allowInsecure:\s*false" -Message 'Container Apps ingress disallows insecure HTTP.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L28: `Assert-Contains -Path $stamp -Pattern "external:\s*false" -Message 'At least one app (worker) is internal-only.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L29: `Assert-Contains -Path $stamp -Pattern "resource\s+kvPrivateDnsZone\s+'Microsoft.Network/privateDnsZones@" -Message 'Private DNS zone for Key Vault private endpoint exists.'` - Implements structure, value assignment, or nested configuration within the current block.
+- L30: `` - Blank line for readability and separation of logical blocks.
+- L31: `Write-Host '[assert-security] Success: security baseline assertions passed.'` - Prints execution progress/output message for operator visibility.
+

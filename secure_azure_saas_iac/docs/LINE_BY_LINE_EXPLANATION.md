@@ -84,3 +84,11 @@ This document explains the current code using line ranges and highlights securit
 ## Notes
 - Line numbers can shift as files evolve.
 - Security rationale comments are embedded directly next to security-sensitive fields in code.
+
+
+For parameter-by-parameter Azure behavior details, see docs/CODE_DEEP_DIVE.md.
+
+
+
+For exhaustive per-line commentary, see docs/EVERY_LINE_EXPLANATION.md.
+

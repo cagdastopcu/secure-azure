@@ -211,12 +211,10 @@ When adding SQL/Storage/Redis/Service Bus modules:
 
 ## 14. Related Docs
 
-- `docs/DEPLOYMENT.md`
-- `docs/LINE_BY_LINE_EXPLANATION.md`
-- `docs/SECURITY_AUDIT.md`
-- `docs/SECURITY_AUDIT_DEEP.md`
-
+- docs/DEPLOYMENT.md`n- docs/LINE_BY_LINE_EXPLANATION.md`n- docs/CODE_DEEP_DIVE.md`n- docs/SECURITY_AUDIT.md`n- docs/SECURITY_AUDIT_DEEP.md`n
 ## 15. Disclaimer
 
 This is a strong baseline, not a complete enterprise landing zone.
 Treat it as a secure starting point and extend with your org's compliance, identity, and operational standards.
+
+
