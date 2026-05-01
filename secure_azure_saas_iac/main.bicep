@@ -66,6 +66,9 @@ param monthlyBudgetAmount int = 1000
 @description('Budget alert email address when cost budget is enabled.')
 param budgetAlertEmail string = 'finops@example.com'
 
+@description('If true, deploy Azure Front Door + WAF edge protection.')
+param deployEdgeFrontDoor bool = false
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -168,6 +171,19 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
   }
 }
 
+// Optional global edge layer with WAF.
+// Safety gate: only deploy when explicitly enabled and app ingress is public.
+module edgeFrontDoor './platform/edge/frontdoor.bicep' = if (deployEdgeFrontDoor && enablePublicWebIngress) {
+  name: 'edge-frontdoor-${projectPrefix}-${environment}'
+  params: {
+    location: location
+    projectPrefix: projectPrefix
+    environment: environment
+    originHostName: acaStamp.outputs.webContainerAppFqdn
+    tags: tags
+  }
+}
+
 // Useful post-deploy outputs.
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
@@ -177,4 +193,5 @@ output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAc
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
 output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
+output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
