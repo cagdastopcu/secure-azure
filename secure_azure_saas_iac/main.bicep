@@ -131,6 +131,9 @@ param platformAlertEmail string = 'ops@example.com'
 @description('If true, deploy advanced subscription deny policies for public network access.')
 param deployAdvancedPublicNetworkDenyPolicies bool = false
 
+@description('If true, export subscription Activity Log categories to Log Analytics for audit/incident response.')
+param deploySubscriptionActivityLogExport bool = true
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -224,6 +227,17 @@ module costBudget './platform/governance/cost-budget.bicep' = if (deployCostBudg
   }
 }
 
+// Optional subscription activity-log export for governance/compliance traceability.
+module activityLogExport './platform/governance/activity-log-export.bicep' = if (deploySubscriptionActivityLogExport) {
+  name: 'activity-log-export-${projectPrefix}-${environment}'
+  scope: subscription()
+  location: location
+  params: {
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+    enableActivityLogExport: true
+  }
+}
+
 
 // Optional data/integration stamp from blueprint.
 module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
@@ -304,5 +318,6 @@ output sqlDatabaseResourceId string = deployDataStamp ? dataStamp.outputs.sqlDat
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 output platformActionGroupId string = deployPlatformAlerts ? platformAlerts.outputs.actionGroupId : ''
 output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies.outputs.assignmentNames : []
+output activityLogDiagnosticSettingName string = deploySubscriptionActivityLogExport ? activityLogExport.outputs.activityLogDiagnosticSettingName : ''
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
