@@ -120,6 +120,9 @@ param deployPlatformAlerts bool = false
 @description('Email destination for platform activity alerts.')
 param platformAlertEmail string = 'ops@example.com'
 
+@description('If true, deploy advanced subscription deny policies for public network access.')
+param deployAdvancedPublicNetworkDenyPolicies bool = false
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -186,6 +189,16 @@ module platformAlerts './platform/monitoring/alerts.bicep' = if (deployPlatformA
     environment: environment
     alertEmail: platformAlertEmail
     tags: tags
+  }
+}
+
+// Optional advanced guardrails: deny public network exposure on critical PaaS services.
+module advancedPublicNetworkDenyPolicies './platform/policy/public-network-deny.bicep' = if (deployAdvancedPublicNetworkDenyPolicies) {
+  name: 'advanced-public-network-deny-${projectPrefix}-${environment}'
+  scope: subscription()
+  location: location
+  params: {
+    enableDeny: true
   }
 }
 
@@ -275,5 +288,6 @@ output sqlServerResourceId string = deployDataStamp ? dataStamp.outputs.sqlServe
 output sqlDatabaseResourceId string = deployDataStamp ? dataStamp.outputs.sqlDatabaseResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 output platformActionGroupId string = deployPlatformAlerts ? platformAlerts.outputs.actionGroupId : ''
+output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies.outputs.assignmentNames : []
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
