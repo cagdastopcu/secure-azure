@@ -37,14 +37,14 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          ./tests/scripts/validate-iac.ps1
+          ./secure_azure_saas_iac/tests/scripts/validate-iac.ps1
 
       - name: Run security assertions
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          ./tests/scripts/assert-security.ps1
+          ./secure_azure_saas_iac/tests/scripts/assert-security.ps1
 
   validate-and-whatif:
     needs: [static-tests]

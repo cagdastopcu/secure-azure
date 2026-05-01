@@ -1,5 +1,5 @@
 param(
-  [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,8 +19,8 @@ function Assert-Contains {
   Write-Host "[assert-security] PASS: $Message"
 }
 
-$stamp = Join-Path $RepoRoot 'secure_azure_saas_iac\stamps\aca-stamp\main.bicep'
-$rootMain = Join-Path $RepoRoot 'secure_azure_saas_iac\main.bicep'
+$stamp = Join-Path $IaCRoot 'stamps\aca-stamp\main.bicep'
+$rootMain = Join-Path $IaCRoot 'main.bicep'
 
 Assert-Contains -Path $rootMain -Pattern "param\s+enablePublicWebIngress\s+bool\s*=\s*false" -Message 'Public web ingress defaults to disabled.'
 Assert-Contains -Path $stamp -Pattern "publicNetworkAccess:\s*'Disabled'" -Message 'Key Vault public network access is disabled.'

@@ -10,8 +10,8 @@ This folder contains lightweight, practical checks for IaC quality and security 
 
 ## Local Run
 ```powershell
-pwsh -File .\tests\scripts\validate-iac.ps1
-pwsh -File .\tests\scripts\assert-security.ps1
+pwsh -File .\secure_azure_saas_iac\tests\scripts\validate-iac.ps1
+pwsh -File .\secure_azure_saas_iac\tests\scripts\assert-security.ps1
 ```
 
 ## CI Behavior

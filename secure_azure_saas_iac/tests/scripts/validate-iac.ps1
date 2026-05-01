@@ -1,5 +1,5 @@
 param(
-  [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+  [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,7 +16,7 @@ Require-Command -Name 'az'
 Write-Host "[validate-iac] Installing/updating Bicep CLI via Azure CLI..."
 az bicep install | Out-Null
 
-$bicepFiles = Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.bicep' -File
+$bicepFiles = Get-ChildItem -Path $IaCRoot -Recurse -Filter '*.bicep' -File
 if (-not $bicepFiles) {
   throw 'No .bicep files found to validate.'
 }
