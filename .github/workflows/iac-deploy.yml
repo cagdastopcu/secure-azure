@@ -20,7 +20,34 @@ permissions:
   contents: read
 
 jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Azure CLI check
+        run: az version
+
+      - name: Run Bicep compile tests
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          ./tests/scripts/validate-iac.ps1
+
+      - name: Run security assertions
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          ./tests/scripts/assert-security.ps1
+
   validate-and-whatif:
+    needs: [static-tests]
     # Hosted Linux runner; deterministic environment for az cli usage.
     runs-on: ubuntu-latest
     # Security/ops hardening: keep token lifetime and runner exposure window short.
