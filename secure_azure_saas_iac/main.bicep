@@ -60,6 +60,26 @@ param deployEventGrid bool = false
 @description('Event Grid topic name when enabled.')
 param eventGridTopicName string = 'app-events-topic'
 
+@description('If true, deploy private Redis in data stamp.')
+param deployRedis bool = false
+
+@description('Redis name suffix.')
+param redisNameSuffix string = 'cache'
+
+@description('Redis SKU name.')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param redisSkuName string = 'Standard'
+
+@description('Redis SKU family.')
+param redisSkuFamily string = 'C'
+
+@description('Redis capacity index.')
+param redisCapacity int = 1
+
 @description('If true, enable Defender for Cloud plans at subscription scope.')
 param deployDefenderOnboarding bool = true
 
@@ -158,6 +178,11 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     defaultQueueName: dataQueueName
     deployEventGrid: deployEventGrid
     eventGridTopicName: eventGridTopicName
+    deployRedis: deployRedis
+    redisNameSuffix: redisNameSuffix
+    redisSkuName: redisSkuName
+    redisSkuFamily: redisSkuFamily
+    redisCapacity: redisCapacity
     tags: tags
   }
 }
@@ -201,6 +226,7 @@ output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAc
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
 output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
 output eventGridTopicResourceId string = deployDataStamp ? dataStamp.outputs.eventGridTopicResourceId : ''
+output redisCacheResourceId string = deployDataStamp ? dataStamp.outputs.redisCacheResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 

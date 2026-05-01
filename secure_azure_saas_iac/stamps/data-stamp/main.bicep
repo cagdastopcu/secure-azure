@@ -33,6 +33,26 @@ param deployEventGrid bool = false
 @description('Event Grid topic name (if enabled).')
 param eventGridTopicName string = 'app-events-topic'
 
+@description('If true, deploy private Redis cache for app state/performance.')
+param deployRedis bool = false
+
+@description('Redis cache name suffix (if enabled).')
+param redisNameSuffix string = 'cache'
+
+@description('Redis SKU name.')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param redisSkuName string = 'Standard'
+
+@description('Redis SKU family, typically C for Basic/Standard and P for Premium.')
+param redisSkuFamily string = 'C'
+
+@description('Redis capacity (size tier index).')
+param redisCapacity int = 1
+
 @description('Tags to apply to all resources.')
 param tags object = {}
 
@@ -89,6 +109,27 @@ resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2023-01-01-prev
     deadLetteringOnMessageExpiration: true
     requiresDuplicateDetection: false
     enableBatchedOperations: true
+  }
+}
+
+resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
+  name: toLower(replace('${projectPrefix}-${environment}-${redisNameSuffix}', '_', '-'))
+  location: location
+  tags: tags
+  properties: {
+    sku: {
+      name: redisSkuName
+      family: redisSkuFamily
+      capacity: redisCapacity
+    }
+    // Security: enforce encrypted transport and no public endpoint.
+    minimumTlsVersion: '1.2'
+    publicNetworkAccess: 'Disabled'
+    // Security: avoid shared key style auth where clients can use managed identity patterns upstream.
+    disableAccessKeyAuthentication: true
+    redisConfiguration: {
+      'maxmemory-policy': 'allkeys-lru'
+    }
   }
 }
 
@@ -149,6 +190,28 @@ resource serviceBusPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-0
   }
 }
 
+resource redisPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = if (deployRedis) {
+  name: '${redisCache.name}-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetResourceId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'redis-connection'
+        properties: {
+          privateLinkServiceId: redisCache.id
+          groupIds: [
+            'redisCache'
+          ]
+        }
+      }
+    ]
+  }
+}
+
 resource eventGridPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = if (deployEventGrid) {
   name: '${eventGridTopic.name}-pe'
   location: location
@@ -183,6 +246,12 @@ resource serviceBusPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01'
   tags: tags
 }
 
+resource redisPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (deployRedis) {
+  name: 'privatelink.redis.cache.windows.net'
+  location: 'global'
+  tags: tags
+}
+
 resource eventGridPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (deployEventGrid) {
   name: 'privatelink.eventgrid.azure.net'
   location: 'global'
@@ -202,6 +271,17 @@ resource storageDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
 
 resource serviceBusDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: 'privatelink.servicebus.windows.net/${projectPrefix}-${environment}-sb-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnetResourceId
+    }
+  }
+}
+
+resource redisDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (deployRedis) {
+  name: 'privatelink.redis.cache.windows.net/${projectPrefix}-${environment}-redis-dns-link'
   location: 'global'
   properties: {
     registrationEnabled: false
@@ -250,6 +330,20 @@ resource serviceBusPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDns
   }
 }
 
+resource redisPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (deployRedis) {
+  name: '${redisPrivateEndpoint.name}/default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'redis-dns-config'
+        properties: {
+          privateDnsZoneId: redisPrivateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
 resource eventGridPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (deployEventGrid) {
   name: '${eventGridPrivateEndpoint.name}/default'
   properties: {
@@ -270,3 +364,4 @@ output serviceBusQueueName string = defaultQueueName
 output storageAccountId string = storageAccount.id
 output serviceBusNamespaceId string = serviceBusNamespace.id
 output eventGridTopicResourceId string = deployEventGrid ? eventGridTopic.id : ''
+output redisCacheResourceId string = deployRedis ? redisCache.id : ''
