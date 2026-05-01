@@ -1,66 +1,42 @@
 # Secure Azure SaaS IaC - Deep Guide (From Zero)
 
-This document explains the IaC system from first principles: what each Azure concept means, why each design choice exists, how the structure works, and how to operate it safely.
+This README explains the current implementation from first principles and matches the latest hardened code in this folder.
 
-## 1. What This Project Is
+## 1. Purpose
+This folder provides a secure-by-default Azure SaaS Infrastructure as Code foundation using Bicep.
 
-This folder contains an **Infrastructure as Code (IaC)** implementation for a secure Azure SaaS platform.
+Key goals:
+- Security-first defaults
+- Repeatable environment provisioning
+- Clear separation of platform baseline vs workload stamp
+- CI checks before deployment
 
-- **IaC** means infrastructure is defined in code files, not manually clicked in portal.
-- **Why it matters**:
-  - Repeatable deployments
-  - Auditable change history (Git)
-  - Faster, safer environments
-  - Easier security enforcement
+## 2. Core Concepts (Zero to Practical)
+- IaC: infrastructure defined in versioned code, not manual portal steps.
+- Bicep: Azure-native declarative language compiled to ARM.
+- ARM: Azure control plane deployment engine.
+- Resource Group: deployment scope for this solution.
+- VNet/Subnet: private network boundaries.
+- Managed Identity: secretless workload identity.
+- Key Vault: central secrets store.
+- Private Endpoint: private IP access to PaaS resource.
+- Private DNS Zone: resolves service FQDNs to private endpoint IPs.
+- Azure Policy: governance guardrails (allow/deny/compliance).
+- OIDC: short-lived CI-to-cloud auth without static cloud secret.
+- What-if: deployment preview without applying changes.
 
-This project uses **Bicep**, which compiles to **ARM** (Azure Resource Manager) deployments.
+## 3. Current Security Posture (Implemented)
+- Web ingress is internal-only by default (`enablePublicWebIngress=false`).
+- If public ingress is enabled, explicit CIDR allow-list is required.
+- ACA ingress uses `allowInsecure: false` (TLS-only edge behavior).
+- Key Vault public network access is disabled.
+- Key Vault access path uses Private Endpoint + Private DNS zone + VNet link + zone group.
+- Managed identities are used by web/worker apps.
+- Key Vault access is least-privilege (`Key Vault Secrets User`) per identity.
+- Policy baseline enforces allowed locations and required tags.
+- CI workflow uses OIDC, timeout, concurrency control, strict shell mode, and non-persisted checkout credentials.
 
-## 2. Core Azure Terms (Simple Definitions)
-
-- **Azure Resource Manager (ARM)**: Azure control plane API that creates/manages resources.
-- **Bicep**: Azure-native declarative language for ARM templates.
-- **Resource Group (RG)**: Logical container for Azure resources.
-- **Subscription**: Billing and governance boundary.
-- **Tenant (Microsoft Entra tenant)**: Identity directory boundary.
-- **Virtual Network (VNet)**: Private network boundary in Azure.
-- **Subnet**: Smaller network segment inside VNet.
-- **Private Endpoint**: Private IP path to Azure PaaS service (no internet path).
-- **Private DNS Zone**: DNS mapping so service names resolve to private endpoint IPs.
-- **Managed Identity**: Azure-managed identity for apps/services; avoids credentials in code.
-- **Key Vault**: Secrets/keys/certificates service.
-- **RBAC**: Role-Based Access Control for least-privilege authorization.
-- **Azure Policy**: Governance rules to allow/deny/audit configurations.
-- **Log Analytics Workspace**: Central log storage/query platform.
-- **Application Insights**: App telemetry (traces, requests, dependencies, failures).
-- **Azure Container Apps (ACA)**: Managed container runtime with autoscaling.
-- **Ingress**: Incoming traffic configuration to an app (public or internal).
-- **OIDC (OpenID Connect)**: Short-lived trust for CI/CD to cloud; no long-lived secret needed.
-- **What-if**: ARM deployment preview showing proposed changes before apply.
-
-## 3. Why This Architecture Exists
-
-The design optimizes for four goals:
-
-1. **Security by default**
-- Internal-only app exposure by default.
-- Key Vault public access disabled.
-- Private endpoint + private DNS for secrets path.
-- Managed identity instead of app secrets.
-
-2. **Platform consistency**
-- Shared tags and naming convention.
-- Policy assignments for allowed regions and required tags.
-- Modular structure reusable across envs.
-
-3. **Operational visibility**
-- Central logs and metrics through Log Analytics + App Insights.
-
-4. **Scalable SaaS foundation**
-- “Stamp” model for repeatable app slices.
-- Easy extension for data, messaging, additional services.
-
-## 4. Folder Structure and Why It Is Organized This Way
-
+## 4. Structure and Why
 ```text
 secure_azure_saas_iac/
   main.bicep
@@ -69,6 +45,7 @@ secure_azure_saas_iac/
     DEPLOYMENT.md
     LINE_BY_LINE_EXPLANATION.md
     SECURITY_AUDIT.md
+    SECURITY_AUDIT_DEEP.md
   pipelines/
     github-actions-iac.yml
   platform/
@@ -81,191 +58,84 @@ secure_azure_saas_iac/
     services/
 ```
 
-### `main.bicep`
-Root orchestrator. Calls all child modules in controlled order.
+- `main.bicep`: root orchestrator wiring all modules.
+- `platform/*`: shared baseline (network/monitoring/policy).
+- `stamps/aca-stamp`: secure runtime stamp.
+- `pipelines/*`: CI validation and what-if.
+- `docs/*`: operational and security documentation.
 
-### `platform/`
-Shared platform baseline resources.
-- `network`: VNet/subnets for ACA and private endpoints.
-- `monitoring`: logs/telemetry foundation.
-- `policy`: governance assignments.
+## 5. Module Breakdown
 
-### `stamps/`
-Repeatable deployable unit for workloads (runtime + security attachments).
+## 5.1 `main.bicep`
+- Central entrypoint.
+- Defines shared parameters and tags.
+- Calls modules in dependency-aware order.
+- Passes security-relevant defaults (`enablePublicWebIngress=false`).
 
-### `workloads/`
-Reserved for app/service-specific modules.
+## 5.2 `platform/network/main.bicep`
+- Creates VNet.
+- Creates delegated ACA subnet.
+- Creates private endpoint subnet.
 
-### `pipelines/`
-CI/CD workflow templates with validation and what-if.
+Why: isolates traffic and enables private service access.
 
-### `docs/`
-Operational and security documentation.
+## 5.3 `platform/monitoring/main.bicep`
+- Creates Log Analytics workspace.
+- Creates workspace-based App Insights.
 
-## 5. Module-by-Module Design Decisions
+Why: unified logs and telemetry for operations/security visibility.
 
-## 5.1 Root Orchestrator (`main.bicep`)
-Why needed:
-- Single entrypoint for deployment.
-- Passes shared parameters/tags once.
-- Wires module outputs safely (e.g., subnet IDs, workspace IDs).
+## 5.4 `platform/policy/security-baseline.bicep`
+- Assigns built-in allowed locations policy.
+- Assigns required-tag-and-value policies.
 
-Security-relevant defaults:
-- `enablePublicWebIngress=false` (internal by default).
-- CIDR controls required if public ingress is enabled.
+Why: enforces governance and reduces configuration drift.
 
-## 5.2 Network Module (`platform/network/main.bicep`)
-What it creates:
-- One VNet
-- ACA infrastructure subnet (delegated)
-- Private endpoint subnet
+## 5.5 `stamps/aca-stamp/main.bicep`
+- Creates ACA environment.
+- Creates Key Vault with public access disabled and recovery protections.
+- Creates managed identities and least-privilege role assignments.
+- Creates web app and internal worker app.
+- Creates Key Vault private endpoint and full private DNS plumbing.
 
-Why needed:
-- Network segmentation and explicit trust boundaries.
-- ACA delegation is required by service runtime.
-- Private endpoint subnet isolates private service paths.
+Why: secure runtime slice for SaaS workloads with private secret path.
 
-## 5.3 Monitoring Module (`platform/monitoring/main.bicep`)
-What it creates:
-- Log Analytics Workspace
-- Workspace-based Application Insights
+## 6. CI/CD Security Design
+In `pipelines/github-actions-iac.yml`:
+- `permissions` minimized (`id-token: write`, `contents: read`).
+- `concurrency` enabled to prevent overlapping runs.
+- `timeout-minutes` limits runner/token exposure window.
+- `actions/checkout` uses `persist-credentials: false`.
+- `AZURE_CORE_OUTPUT=none` reduces accidental log leakage.
+- `set -euo pipefail` enforces fail-fast shell behavior.
+- `validate` + `what-if` provide pre-deploy controls.
 
-Why needed:
-- Unified telemetry for troubleshooting and security monitoring.
-- Baseline observability required for production operations.
-
-## 5.4 Policy Module (`platform/policy/security-baseline.bicep`)
-What it assigns:
-- Allowed locations policy.
-- Required tag+value policies (`environment`, `project`, `managedBy`).
-
-Why needed:
-- Prevent drift and non-compliant deployments.
-- Enforce governance controls early.
-
-## 5.5 ACA Stamp (`stamps/aca-stamp/main.bicep`)
-What it creates:
-- ACA managed environment
-- Key Vault (private-only)
-- User-assigned managed identities
-- Web app + internal worker app
-- Key Vault private endpoint
-- Private DNS zone + VNet link + PE zone group
-
-Why needed:
-- Provides a secure, reusable runtime slice for SaaS workloads.
-- Keeps secret access private and identity-based.
-- Separates public-facing and internal service paths.
-
-## 6. Security Model (Practical)
-
-## 6.1 Identity and Access
-- Workloads authenticate using managed identities.
-- Key Vault access granted with least-privilege role (`Key Vault Secrets User`).
-
-Why:
-- Eliminates embedded credentials.
-- Reduces blast radius if one app identity is compromised.
-
-## 6.2 Network Security
-- Key Vault public network access disabled.
-- Private endpoint used for secret retrieval.
-- Private DNS ensures correct private name resolution.
-- Worker app has internal ingress only.
-
-Why:
-- Reduces internet attack surface.
-- Prevents accidental secret access over public routes.
-
-## 6.3 Governance
-- Policy guardrails enforce allowed regions and mandatory tags.
-
-Why:
-- Prevents accidental non-compliant resource creation.
-- Improves cost/security/accountability reporting.
-
-## 6.4 CI/CD Security
-- OIDC auth model in workflow (no static cloud secret in YAML).
-- `what-if` before apply.
-- Concurrency and timeout controls.
-
-Why:
-- Limits credential risk and operational race conditions.
-
-## 7. Deployment Flow (How It Works)
-
-1. Run deployment with parameters.
-2. Root module deploys monitoring/network/policy.
-3. Root module deploys ACA stamp using output dependencies.
-4. Outputs provide environment name/FQDN/workspace references.
-
-Why this order:
-- Stamp depends on network and monitoring outputs.
-- Security and governance should be established before workload growth.
-
-## 8. Environment Strategy (dev/test/prod)
-
-Recommended:
-- Separate resource groups per environment at minimum.
-- Prefer separate subscriptions for stronger isolation in mature setups.
-- Use parameter files (`*.bicepparam`) per environment.
-
-Why:
-- Isolation reduces cross-environment blast radius.
-- Cleaner RBAC and cost boundaries.
-
-## 9. How to Extend Safely
-
-When adding new modules (SQL, Storage, Redis, Service Bus, etc.):
-- Prefer private endpoint connectivity.
-- Disable public access if service supports it.
-- Use managed identity auth where possible.
-- Add policy controls for each new service type.
-- Add diagnostics routing to Log Analytics.
-
-## 10. Known Limits / Important Notes
-
-- Azure CLI not guaranteed on every local machine; validate toolchain before deployment.
-- Built-in policy IDs can evolve; verify IDs in tenant periodically.
-- Internal default ingress may require fronting with gateway/front door for public apps.
-
-## 11. Quick Command Reference
-
+## 7. Deployment Basics
 ```bash
-# Create RG
 az group create --name rg-saas-dev-platform --location westeurope
-
-# Deploy root
 az deployment group create \
   --resource-group rg-saas-dev-platform \
   --template-file secure_azure_saas_iac/main.bicep \
   --parameters location=westeurope environment=dev projectPrefix=saas
+```
 
-# Validate only
-az deployment group validate \
-  --resource-group rg-saas-dev-platform \
-  --template-file secure_azure_saas_iac/main.bicep \
-  --parameters location=westeurope environment=dev projectPrefix=saas
-
-# Preview changes
+For change preview:
+```bash
 az deployment group what-if \
   --resource-group rg-saas-dev-platform \
   --template-file secure_azure_saas_iac/main.bicep \
   --parameters location=westeurope environment=dev projectPrefix=saas
 ```
 
-## 12. Why This Matters for a SaaS Company
+## 8. Recommended Next Hardening Steps
+1. Pin workflow actions by full commit SHA.
+2. Add CODEOWNERS for IaC/workflow paths.
+3. Enforce branch protection + required status checks.
+4. Expand policy baseline for diagnostics/public-access deny on future data modules.
+5. Add Defender for Cloud onboarding module.
 
-A SaaS platform needs speed and trust simultaneously.
-This structure gives:
-- Fast repeatable environments
-- Security-first defaults
-- Lower operational risk
-- Clear upgrade path from startup to enterprise scale
-
-## 13. Related Docs in This Folder
-
-- `docs/DEPLOYMENT.md`: deployment commands and practical notes
-- `docs/LINE_BY_LINE_EXPLANATION.md`: code-level walkthrough
-- `docs/SECURITY_AUDIT.md`: hardening findings and remediations
-
+## 9. Companion Docs
+- `docs/DEPLOYMENT.md`
+- `docs/LINE_BY_LINE_EXPLANATION.md`
+- `docs/SECURITY_AUDIT.md`
+- `docs/SECURITY_AUDIT_DEEP.md`

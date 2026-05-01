@@ -4,10 +4,12 @@
 targetScope = 'resourceGroup'
 
 @description('Primary deployment location for regional resources.')
+// Uses RG location by default to reduce accidental cross-region drift.
 param location string = resourceGroup().location
 
 @description('Environment name.')
 @allowed([
+  // Allowed values intentionally limited to standard SDLC lifecycle tiers.
   'dev'
   'test'
   'prod'
@@ -15,21 +17,27 @@ param location string = resourceGroup().location
 param environment string = 'dev'
 
 @description('Project prefix for naming.')
+// Prefix appears in resource names to support ownership discovery and cost allocation.
 param projectPrefix string = 'saas'
 
 @description('Virtual network address space.')
+// Parent CIDR for all workload subnets in this deployment.
 param vnetAddressPrefix string = '10.40.0.0/16'
 
 @description('Subnet for Container Apps infrastructure.')
+// /23 (or larger) recommended for ACA environment infrastructure growth.
 param acaInfraSubnetPrefix string = '10.40.0.0/23'
 
 @description('Subnet for private endpoints.')
+// Dedicated PE subnet keeps private service interfaces isolated.
 param privateEndpointSubnetPrefix string = '10.40.2.0/24'
 
 @description('Log Analytics retention in days.')
+// Keep default retention moderate; raise for compliance/audit requirements.
 param logRetentionInDays int = 30
 
 @description('Container app image to deploy as bootstrap app.')
+// Sample image only; replace with enterprise-controlled image registry for production.
 param bootstrapContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 @description('Allowed CIDR ranges for public web app ingress. Use narrow corporate ranges in production.')
@@ -40,6 +48,7 @@ param allowedIngressCidrs array = [
 ]
 
 @description('If true, web app is internet-facing. If false, web app is internal-only inside ACA environment.')
+// Security default: internal-only. Public exposure must be explicit.
 param enablePublicWebIngress bool = false
 
 var tags = {
@@ -109,6 +118,7 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
 }
 
 // Useful outputs for operators and pipeline post-deploy steps.
+// These are safe metadata outputs (not secrets).
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn

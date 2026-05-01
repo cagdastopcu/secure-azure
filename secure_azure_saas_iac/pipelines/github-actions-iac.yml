@@ -25,13 +25,22 @@ jobs:
     # Security/ops hardening: keep token lifetime and runner exposure window short.
     timeout-minutes: 20
     env:
+      # Security hardening: avoid printing command outputs that might include sensitive values.
+      AZURE_CORE_OUTPUT: none
       AZURE_LOCATION: westeurope
       RESOURCE_GROUP: rg-saas-dev-platform
     steps:
       # Pull repository content into runner workspace.
+      # Further hardening option: pin to full commit SHA instead of major tag.
       - uses: actions/checkout@v4
+        with:
+          # Security hardening: do not persist token creds in git config for later steps.
+          persist-credentials: false
+          # Security hardening: least history required for validation job.
+          fetch-depth: 1
 
       - name: Azure Login (OIDC)
+        # Further hardening option: pin this action to a full commit SHA.
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -41,11 +50,13 @@ jobs:
       - name: Ensure resource group exists
         # Idempotent create; safe if resource group already exists.
         run: |
+          set -euo pipefail
           az group create --name "$RESOURCE_GROUP" --location "$AZURE_LOCATION"
 
       - name: Validate Bicep
         # Static + server-side ARM validation for template correctness.
         run: |
+          set -euo pipefail
           az bicep install
           az deployment group validate \
             --resource-group "$RESOURCE_GROUP" \
@@ -55,6 +66,7 @@ jobs:
       - name: What-if
         # Change preview gate; helps detect destructive drift before apply.
         run: |
+          set -euo pipefail
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file main.bicep \

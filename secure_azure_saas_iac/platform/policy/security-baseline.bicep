@@ -5,9 +5,11 @@
 targetScope = 'resourceGroup'
 
 @description('Location for policy assignment metadata.')
+// Policy assignment resources require explicit location.
 param location string = resourceGroup().location
 
 @description('Allowed Azure regions for resource deployments.')
+// Keep this allow-list short to enforce residency/compliance boundaries.
 param allowedLocations array = [
   'westeurope'
 ]
@@ -23,6 +25,7 @@ param managedByTagValue string = 'bicep'
 
 var allowedLocationsPolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c'
 var requireTagAndValuePolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/2a0e14a6-b0a6-4fab-991a-187a4f81c498'
+// Verify built-in policy IDs periodically; Microsoft can evolve definitions over time.
 
 // Restrict deployment geography to approved regions.
 resource allowedLocationsAssignment 'Microsoft.Authorization/policyAssignments@2025-03-01' = {

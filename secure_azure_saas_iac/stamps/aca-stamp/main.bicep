@@ -9,11 +9,16 @@ targetScope = 'resourceGroup'
 param location string
 param projectPrefix string
 param environment string
+// Resource ID of centralized Log Analytics workspace used by ACA environment logs.
 param logAnalyticsWorkspaceId string
 @secure()
+// Shared key is sensitive; secure() prevents accidental plaintext exposure in deployment metadata.
 param logAnalyticsSharedKey string
+// Subnet delegated to ACA managed environment infrastructure.
 param infrastructureSubnetResourceId string
+// Subnet dedicated for private endpoint NIC placement.
 param privateEndpointSubnetResourceId string
+// Image URI for both web and worker containers in this baseline stamp.
 param containerImage string
 @description('Controls whether the web app is publicly reachable. Keep false unless you intentionally publish internet endpoints.')
 param enablePublicWebIngress bool = false
@@ -54,8 +59,7 @@ resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
 }
 
 // Key Vault configured with RBAC, soft-delete, and purge-protection.
-// Public network remains enabled but firewalled (default deny), while
-// private endpoint is created later in this module for private access.
+// Public network is disabled; private endpoint path is enforced.
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
@@ -78,6 +82,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
       // This reduces unintended data-plane exposure.
       bypass: 'None'
       defaultAction: 'Deny'
+      // Explicitly empty lists to avoid accidental broad rules via inheritance assumptions.
       ipRules: []
       virtualNetworkRules: []
     }
@@ -136,6 +141,9 @@ resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
       ingress: {
         // Security hardening: internal-only by default.
         external: enablePublicWebIngress
+        // Security hardening: reject plain HTTP and force TLS at ingress edge.
+        // This prevents credential/token leakage over cleartext transport.
+        allowInsecure: false
         targetPort: 80
         transport: 'auto'
         // Security hardening: when public ingress is enabled, explicitly allow only trusted CIDRs.
@@ -150,6 +158,7 @@ resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
     }
     template: {
       scale: {
+        // Non-zero baseline replica keeps endpoint warm; tune for cost/perf needs.
         minReplicas: 1
         maxReplicas: 10
       }
@@ -192,7 +201,10 @@ resource workerApp 'Microsoft.App/containerApps@2025-01-01' = {
     managedEnvironmentId: acaEnvironment.id
     configuration: {
       ingress: {
+        // Worker path is never internet-facing in this baseline.
         external: false
+        // Security hardening: even internal ingress should enforce encrypted transport semantics.
+        allowInsecure: false
         targetPort: 8080
         transport: 'auto'
       }
@@ -200,6 +212,7 @@ resource workerApp 'Microsoft.App/containerApps@2025-01-01' = {
     }
     template: {
       scale: {
+        // Conservative worker scaling defaults; adjust to queue/workload behavior.
         minReplicas: 1
         maxReplicas: 5
       }
