@@ -1,33 +1,28 @@
-// Resource-group scoped governance baseline.
-// Uses Azure built-in policies for:
-// - allowed regions
-// - required tags with expected values
+// Governance baseline at resource-group scope.
+// Why: enforce location and tagging standards automatically.
 targetScope = 'resourceGroup'
 
-@description('Location for policy assignment metadata.')
-// Policy assignment resources require explicit location.
+@description('Location for policy assignment metadata resources.')
 param location string = resourceGroup().location
 
-@description('Allowed Azure regions for resource deployments.')
-// Keep this allow-list short to enforce residency/compliance boundaries.
+@description('Allowed deployment regions.')
 param allowedLocations array = [
   'westeurope'
 ]
 
-@description('Environment tag value expected on resources.')
+@description('Expected environment tag value on resources.')
 param environmentTagValue string
 
-@description('Project tag value expected on resources.')
+@description('Expected project tag value on resources.')
 param projectTagValue string
 
-@description('Managed-by tag value expected on resources.')
+@description('Expected managedBy tag value on resources.')
 param managedByTagValue string = 'bicep'
 
+// Built-in policy IDs (verify periodically in tenant).
 var allowedLocationsPolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c'
 var requireTagAndValuePolicyDefinitionId = '/providers/Microsoft.Authorization/policyDefinitions/2a0e14a6-b0a6-4fab-991a-187a4f81c498'
-// Verify built-in policy IDs periodically; Microsoft can evolve definitions over time.
 
-// Restrict deployment geography to approved regions.
 resource allowedLocationsAssignment 'Microsoft.Authorization/policyAssignments@2025-03-01' = {
   name: 'alz-allowed-locations'
   location: location
@@ -44,7 +39,6 @@ resource allowedLocationsAssignment 'Microsoft.Authorization/policyAssignments@2
   }
 }
 
-// Enforce environment tag consistency.
 resource requireEnvironmentTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {
   name: 'alz-require-environment-tag'
   location: location
@@ -64,7 +58,6 @@ resource requireEnvironmentTag 'Microsoft.Authorization/policyAssignments@2025-0
   }
 }
 
-// Enforce project tag consistency.
 resource requireProjectTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {
   name: 'alz-require-project-tag'
   location: location
@@ -84,7 +77,6 @@ resource requireProjectTag 'Microsoft.Authorization/policyAssignments@2025-03-01
   }
 }
 
-// Enforce managedBy tag consistency.
 resource requireManagedByTag 'Microsoft.Authorization/policyAssignments@2025-03-01' = {
   name: 'alz-require-managedby-tag'
   location: location
@@ -104,7 +96,6 @@ resource requireManagedByTag 'Microsoft.Authorization/policyAssignments@2025-03-
   }
 }
 
-// Expose assignment names for operations/reporting.
 output policyAssignments array = [
   allowedLocationsAssignment.name
   requireEnvironmentTag.name

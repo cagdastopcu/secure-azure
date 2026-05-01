@@ -1,26 +1,19 @@
-// Network baseline module.
-// Creates one VNet with:
-// - delegated subnet for Azure Container Apps environment infrastructure
-// - subnet for private endpoints
+// Network baseline for the SaaS stamp.
+// Why: explicit private boundaries for runtime and private endpoints.
 targetScope = 'resourceGroup'
 
-// Deployment region for all network resources in this module.
 param location string
-// Naming and ownership context.
 param projectPrefix string
 param environment string
-// Network ranges provided by root template.
 param vnetAddressPrefix string
 param acaInfraSubnetPrefix string
 param privateEndpointSubnetPrefix string
-// Governance tags propagated from root.
 param tags object = {}
 
 var vnetName = '${projectPrefix}-${environment}-vnet'
 var acaInfraSubnetName = 'snet-aca-infra'
 var privateEndpointSubnetName = 'snet-private-endpoints'
 
-// Single VNet is used as the private boundary for the stamp.
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: vnetName
   location: location
@@ -31,8 +24,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
     }
     subnets: [
       {
-        // ACA environment requires subnet delegation to Microsoft.App/environments.
-        // Without delegation, ACA environment deployment fails.
+        // Required by ACA managed environment deployment.
         name: acaInfraSubnetName
         properties: {
           addressPrefix: acaInfraSubnetPrefix
@@ -47,8 +39,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         }
       }
       {
-        // Private endpoint policies disabled as required for PE subnet.
-        // This is necessary for Private Endpoint NIC attachment behavior.
+        // Required for Private Endpoint subnet behavior.
         name: privateEndpointSubnetName
         properties: {
           addressPrefix: privateEndpointSubnetPrefix
@@ -59,7 +50,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// Output IDs are consumed by other modules instead of hardcoding names.
 output vnetName string = vnet.name
 output acaInfraSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, acaInfraSubnetName)
 output privateEndpointSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
