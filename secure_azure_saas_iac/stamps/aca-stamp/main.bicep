@@ -129,7 +129,8 @@ resource workerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-0
 
 // Least-privilege secret read role for web app identity.
 resource kvSecretsUserWeb 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, webIdentity.properties.principalId, 'KeyVaultSecretsUser')
+  // Security + reliability: role assignment name must be deterministic at deployment start.
+  name: guid(keyVault.id, webIdentity.id, 'KeyVaultSecretsUser')
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
@@ -140,7 +141,8 @@ resource kvSecretsUserWeb 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 
 // Least-privilege secret read role for worker app identity.
 resource kvSecretsUserWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, workerIdentity.properties.principalId, 'KeyVaultSecretsUser')
+  // Security + reliability: role assignment name must be deterministic at deployment start.
+  name: guid(keyVault.id, workerIdentity.id, 'KeyVaultSecretsUser')
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')

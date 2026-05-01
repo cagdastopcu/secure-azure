@@ -17,4 +17,5 @@ resource defenderPlans 'Microsoft.Security/pricings@2023-01-01' = [for planName 
   }
 }]
 
-output enabledPlans array = [for p in defenderPlans: p.name]
+// Return declared plan names directly to avoid collection-reference limitations at output time.
+output enabledPlans array = defenderPlanNames

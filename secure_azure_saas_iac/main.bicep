@@ -113,6 +113,9 @@ param monthlyBudgetAmount int = 1000
 @description('Budget alert email address when cost budget is enabled.')
 param budgetAlertEmail string = 'finops@example.com'
 
+@description('Budget period start date (YYYY-MM-01) used by subscription budget module.')
+param budgetStartDate string = '2026-01-01'
+
 @description('If true, deploy Azure Front Door + WAF edge protection.')
 param deployEdgeFrontDoor bool = false
 
@@ -188,7 +191,6 @@ module securityBaseline './platform/policy/security-baseline.bicep' = {
 module defenderOnboarding './platform/security/defender-onboarding.bicep' = if (deployDefenderOnboarding) {
   name: 'defender-onboarding-${projectPrefix}-${environment}'
   scope: subscription()
-  location: location
   params: {}
 }
 
@@ -208,7 +210,6 @@ module platformAlerts './platform/monitoring/alerts.bicep' = if (deployPlatformA
 module advancedPublicNetworkDenyPolicies './platform/policy/public-network-deny.bicep' = if (deployAdvancedPublicNetworkDenyPolicies) {
   name: 'advanced-public-network-deny-${projectPrefix}-${environment}'
   scope: subscription()
-  location: location
   params: {
     enableDeny: true
   }
@@ -218,12 +219,11 @@ module advancedPublicNetworkDenyPolicies './platform/policy/public-network-deny.
 module costBudget './platform/governance/cost-budget.bicep' = if (deployCostBudget) {
   name: 'cost-budget-${projectPrefix}-${environment}'
   scope: subscription()
-  location: location
   params: {
     monthlyBudgetAmount: monthlyBudgetAmount
     budgetAlertEmail: budgetAlertEmail
     budgetName: '${projectPrefix}-${environment}-monthly-budget'
-    budgetStartDate: '${utcNow('yyyy-MM-01')}'
+    budgetStartDate: budgetStartDate
   }
 }
 
@@ -231,7 +231,6 @@ module costBudget './platform/governance/cost-budget.bicep' = if (deployCostBudg
 module activityLogExport './platform/governance/activity-log-export.bicep' = if (deploySubscriptionActivityLogExport) {
   name: 'activity-log-export-${projectPrefix}-${environment}'
   scope: subscription()
-  location: location
   params: {
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     enableActivityLogExport: true
@@ -308,16 +307,16 @@ output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
 output ddosPlanResourceId string = network.outputs.ddosPlanResourceId
 output privateEndpointSubnetNsgResourceId string = network.outputs.privateEndpointSubnetNsgResourceId
 
-output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
-output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
-output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
-output eventGridTopicResourceId string = deployDataStamp ? dataStamp.outputs.eventGridTopicResourceId : ''
-output redisCacheResourceId string = deployDataStamp ? dataStamp.outputs.redisCacheResourceId : ''
-output sqlServerResourceId string = deployDataStamp ? dataStamp.outputs.sqlServerResourceId : ''
-output sqlDatabaseResourceId string = deployDataStamp ? dataStamp.outputs.sqlDatabaseResourceId : ''
-output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
-output platformActionGroupId string = deployPlatformAlerts ? platformAlerts.outputs.actionGroupId : ''
-output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies.outputs.assignmentNames : []
-output activityLogDiagnosticSettingName string = deploySubscriptionActivityLogExport ? activityLogExport.outputs.activityLogDiagnosticSettingName : ''
-output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
+output storageAccountName string = deployDataStamp ? dataStamp!.outputs.storageAccountName : ''
+output serviceBusNamespaceName string = deployDataStamp ? dataStamp!.outputs.serviceBusNamespaceName : ''
+output serviceBusQueueName string = deployDataStamp ? dataStamp!.outputs.serviceBusQueueName : ''
+output eventGridTopicResourceId string = deployDataStamp ? dataStamp!.outputs.eventGridTopicResourceId : ''
+output redisCacheResourceId string = deployDataStamp ? dataStamp!.outputs.redisCacheResourceId : ''
+output sqlServerResourceId string = deployDataStamp ? dataStamp!.outputs.sqlServerResourceId : ''
+output sqlDatabaseResourceId string = deployDataStamp ? dataStamp!.outputs.sqlDatabaseResourceId : ''
+output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding!.outputs.enabledPlans : []
+output platformActionGroupId string = deployPlatformAlerts ? platformAlerts!.outputs.actionGroupId : ''
+output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies!.outputs.assignmentNames : []
+output activityLogDiagnosticSettingName string = deploySubscriptionActivityLogExport ? activityLogExport!.outputs.activityLogDiagnosticSettingName : ''
+output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor!.outputs.frontDoorEndpointHostName : ''
 
