@@ -27,6 +27,8 @@ param privateEndpointSubnetPrefix string = '10.40.2.0/24'
 
 @description('If true, enable DDoS Network Protection on the VNet.')
 param enableDdosProtection bool = false
+@description('If true, attach an NSG to private endpoint subnet.')
+param enablePrivateEndpointSubnetNsg bool = true
 
 @description('Log retention days in Log Analytics.')
 param logRetentionInDays int = 30
@@ -160,6 +162,7 @@ module network './platform/network/main.bicep' = {
     acaInfraSubnetPrefix: acaInfraSubnetPrefix
     privateEndpointSubnetPrefix: privateEndpointSubnetPrefix
     enableDdosProtection: enableDdosProtection
+    enablePrivateEndpointSubnetNsg: enablePrivateEndpointSubnetNsg
     tags: tags
   }
 }
@@ -289,6 +292,7 @@ output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspa
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
 output ddosPlanResourceId string = network.outputs.ddosPlanResourceId
+output privateEndpointSubnetNsgResourceId string = network.outputs.privateEndpointSubnetNsgResourceId
 
 output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
