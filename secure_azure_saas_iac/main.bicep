@@ -38,6 +38,21 @@ param allowedIngressCidrs array = [
 
 @description('If true, web app is public; if false, internal-only.')
 param enablePublicWebIngress bool = false
+@description('If true, deploy secure data/integration stamp (Storage + Service Bus + private endpoints).')
+param deployDataStamp bool = true
+
+@description('Storage SKU for data stamp.')
+param dataStorageSku string = 'Standard_LRS'
+
+@description('Service Bus SKU for data stamp.')
+@allowed([
+  'Standard'
+  'Premium'
+])
+param dataServiceBusSku string = 'Standard'
+
+@description('Default queue name in Service Bus namespace.')
+param dataQueueName string = 'app-events'
 
 // Shared governance tags applied across modules.
 var tags = {
@@ -87,6 +102,21 @@ module securityBaseline './platform/policy/security-baseline.bicep' = {
   }
 }
 
+
+// Optional data/integration stamp from blueprint.
+module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
+  name: 'data-stamp-${projectPrefix}-${environment}'
+  params: {
+    location: location
+    projectPrefix: projectPrefix
+    environment: environment
+    privateEndpointSubnetResourceId: network.outputs.privateEndpointSubnetResourceId
+    storageSku: dataStorageSku
+    serviceBusSku: dataServiceBusSku
+    defaultQueueName: dataQueueName
+    tags: tags
+  }
+}
 // Workload stamp deploys secure runtime components.
 module acaStamp './stamps/aca-stamp/main.bicep' = {
   name: 'aca-stamp-${projectPrefix}-${environment}'
@@ -109,3 +139,8 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
+
+output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
+output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
+output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
+
