@@ -147,13 +147,18 @@ az deployment group what-if \
 
 ## 9. CI/CD Workflow Notes
 
-File: `pipelines/github-actions-iac.yml`
+Executable workflow file:
+- `.github/workflows/iac-deploy.yml`
+
+Template/source copy (kept in IaC folder):
+- `pipelines/github-actions-iac.yml`
 
 What it does:
 - Authenticates to Azure via OIDC (`azure/login`)
 - Ensures target RG exists
 - Runs Bicep validation
 - Runs what-if preview
+- Runs on pull requests to `main` and `master`
 
 Why it matters:
 - Catches failures/drift before production deployment

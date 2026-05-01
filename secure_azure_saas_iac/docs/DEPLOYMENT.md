@@ -12,12 +12,13 @@
 az group create --name rg-saas-dev-platform --location westeurope
 az deployment group create \
   --resource-group rg-saas-dev-platform \
-  --template-file main.bicep \
+  --template-file secure_azure_saas_iac/main.bicep \
   --parameters location=westeurope environment=dev projectPrefix=saas
 ```
 
 ## Security Notes
-- Replace `allowedIngressCidrs` default (`0.0.0.0/0`) with strict CIDR ranges before production.
+- Public web ingress is disabled by default (`enablePublicWebIngress=false`).
+- If public ingress is enabled, set `allowedIngressCidrs` to strict trusted ranges.
 - Use OIDC federation in GitHub Actions; do not use long-lived client secrets.
 - Extend with policy assignments and private DNS zones per your enterprise landing zone.
 

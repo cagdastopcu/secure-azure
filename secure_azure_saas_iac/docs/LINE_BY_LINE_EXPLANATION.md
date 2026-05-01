@@ -68,9 +68,9 @@ This document explains the current code using line ranges and highlights securit
 - Lines 300-314: Private endpoint DNS zone group.
 - Lines 316-318: Outputs.
 
-## File: `pipelines/github-actions-iac.yml`
+## File: `.github/workflows/iac-deploy.yml`
 - Lines 1-2: Workflow security intent comments.
-- Lines 3-7: Trigger.
+- Lines 3-8: Trigger (`main` + `master`) to support current and legacy default branch names.
 - Lines 9-12: Concurrency control to avoid overlapping runs.
 - Lines 14-18: Minimal token permissions.
 - Lines 20-25: Job, runner, timeout.
@@ -78,8 +78,8 @@ This document explains the current code using line ranges and highlights securit
 - Lines 31-37: Checkout with `persist-credentials: false` and shallow fetch.
 - Lines 39-44: OIDC Azure login.
 - Lines 46-50: RG create with `set -euo pipefail`.
-- Lines 52-59: Validate with strict shell mode.
-- Lines 61-68: What-if with strict shell mode.
+- Lines 52-59: Validate with strict shell mode and explicit template path `secure_azure_saas_iac/main.bicep`.
+- Lines 61-68: What-if with strict shell mode and explicit template path `secure_azure_saas_iac/main.bicep`.
 
 ## Notes
 - Line numbers can shift as files evolve.
