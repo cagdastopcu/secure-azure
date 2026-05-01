@@ -24,8 +24,11 @@ node_modules/
 # Secrets and local env
 .env
 .env.*
+!.env.example
+.envrc
 *.secret
 *.secrets
+.azure/
 
 # Azure CLI / local outputs
 *.log

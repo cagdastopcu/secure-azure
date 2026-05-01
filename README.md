@@ -46,9 +46,11 @@ az deployment group create \
 ```
 
 ## Security Notes
-- Replace default ingress CIDR (`0.0.0.0/0`) before production.
+- Public web ingress is disabled by default (`enablePublicWebIngress=false`).
+- If enabling public ingress, restrict `allowedIngressCidrs` to trusted IP ranges only.
 - Keep CI/CD secretless with OIDC federation.
 - Extend policy baseline with your organization initiatives and compliance controls.
+- Use `.env.example` as a local template; never commit real `.env` files.
 
 ## Recommended Next Steps
 - Add private DNS zones and VNet links for private endpoint resolution.
