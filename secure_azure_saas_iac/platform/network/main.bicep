@@ -9,16 +9,29 @@ param vnetAddressPrefix string
 param acaInfraSubnetPrefix string
 param privateEndpointSubnetPrefix string
 param tags object = {}
+@description('If true, create and attach a DDoS Network Protection plan to this VNet.')
+param enableDdosProtection bool = false
 
 var vnetName = '${projectPrefix}-${environment}-vnet'
 var acaInfraSubnetName = 'snet-aca-infra'
 var privateEndpointSubnetName = 'snet-private-endpoints'
+var ddosPlanName = '${projectPrefix}-${environment}-ddos-plan'
+
+resource ddosPlan 'Microsoft.Network/ddosProtectionPlans@2023-09-01' = if (enableDdosProtection) {
+  name: ddosPlanName
+  location: location
+  tags: tags
+}
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: vnetName
   location: location
   tags: tags
   properties: {
+    ddosProtectionPlan: enableDdosProtection ? {
+      id: ddosPlan.id
+    } : null
+    enableDdosProtection: enableDdosProtection
     addressSpace: {
       addressPrefixes: [vnetAddressPrefix]
     }
@@ -53,3 +66,4 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 output vnetName string = vnet.name
 output acaInfraSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, acaInfraSubnetName)
 output privateEndpointSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
+output ddosPlanResourceId string = enableDdosProtection ? ddosPlan.id : ''

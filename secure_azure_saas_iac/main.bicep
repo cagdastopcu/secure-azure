@@ -25,6 +25,9 @@ param acaInfraSubnetPrefix string = '10.40.0.0/23'
 @description('Subnet CIDR dedicated to private endpoints.')
 param privateEndpointSubnetPrefix string = '10.40.2.0/24'
 
+@description('If true, enable DDoS Network Protection on the VNet.')
+param enableDdosProtection bool = false
+
 @description('Log retention days in Log Analytics.')
 param logRetentionInDays int = 30
 
@@ -141,6 +144,7 @@ module network './platform/network/main.bicep' = {
     vnetAddressPrefix: vnetAddressPrefix
     acaInfraSubnetPrefix: acaInfraSubnetPrefix
     privateEndpointSubnetPrefix: privateEndpointSubnetPrefix
+    enableDdosProtection: enableDdosProtection
     tags: tags
   }
 }
@@ -242,6 +246,7 @@ module edgeFrontDoor './platform/edge/frontdoor.bicep' = if (deployEdgeFrontDoor
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
+output ddosPlanResourceId string = network.outputs.ddosPlanResourceId
 
 output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
