@@ -28,12 +28,9 @@ on:
     # Only PRs targeting these branches will trigger this workflow.
     branches: [ main, master ]
 
-# This line configures workflow behavior.
 concurrency:
   # Security/ops hardening: prevent overlapping infrastructure validations on same branch.
-  # This line configures workflow behavior.
   group: iac-${{ github.workflow }}-${{ github.ref }}
-  # This line configures workflow behavior.
   cancel-in-progress: true
 
 # Security: limits what the workflow token is allowed to do.
@@ -54,7 +51,6 @@ permissions:
 # What: starts jobs section. Why: defines CI execution units.
 # Starts job definitions.
 jobs:
-  # This line configures workflow behavior.
   static-tests:
     # What: runner image. Why: determines execution environment.
     # Selects the runner machine image for this job.
@@ -78,12 +74,9 @@ jobs:
           # Shallow checkout for faster, smaller clone.
           fetch-depth: 1
 
-      # This line configures workflow behavior.
       - name: Azure CLI check
-        # This line configures workflow behavior.
         run: az version
 
-      # This line configures workflow behavior.
       - name: Run Bicep compile tests
         # What: PowerShell shell selection. Why: required for pwsh script syntax.
         # Runs this step using PowerShell shell.
@@ -91,14 +84,10 @@ jobs:
         # What: multi-line command block. Why: execute grouped commands in one step.
         # Starts multi-line command script.
         run: |
-          # This line configures workflow behavior.
           Set-StrictMode -Version Latest
-          # This line configures workflow behavior.
           $ErrorActionPreference = 'Stop'
-          # This line configures workflow behavior.
           ./secure_azure_saas_iac/tests/scripts/validate-iac.ps1
 
-      # This line configures workflow behavior.
       - name: Run security assertions
         # What: PowerShell shell selection. Why: required for pwsh script syntax.
         # Runs this step using PowerShell shell.
@@ -106,14 +95,10 @@ jobs:
         # What: multi-line command block. Why: execute grouped commands in one step.
         # Starts multi-line command script.
         run: |
-          # This line configures workflow behavior.
           Set-StrictMode -Version Latest
-          # This line configures workflow behavior.
           $ErrorActionPreference = 'Stop'
-          # This line configures workflow behavior.
           ./secure_azure_saas_iac/tests/scripts/assert-security.ps1
 
-  # This line configures workflow behavior.
   validate-and-whatif:
     # What: job dependency. Why: this job waits for previous required job.
     # This job waits for required previous job(s) to pass.
@@ -126,14 +111,10 @@ jobs:
     # What: job timeout. Why: avoids hung jobs and wasted runtime.
     # Stops the job if it runs too long.
     timeout-minutes: 20
-    # This line configures workflow behavior.
     env:
       # Security hardening: avoid printing command outputs that might include sensitive values.
-      # This line configures workflow behavior.
       AZURE_CORE_OUTPUT: none
-      # This line configures workflow behavior.
       AZURE_LOCATION: westeurope
-      # This line configures workflow behavior.
       RESOURCE_GROUP: rg-saas-dev-platform
     # What: steps section. Why: commands run in this order.
     # Starts ordered steps run by this job.
@@ -155,22 +136,16 @@ jobs:
           # Shallow checkout for faster, smaller clone.
           fetch-depth: 1
 
-      # This line configures workflow behavior.
       - name: Azure Login (OIDC)
         # Further hardening option: pin this action to a full commit SHA.
-        # This line configures workflow behavior.
         uses: azure/login@v2
         # What: action inputs. Why: configure behavior of action above.
         # Starts configuration inputs for the action above.
         with:
-          # This line configures workflow behavior.
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          # This line configures workflow behavior.
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          # This line configures workflow behavior.
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # This line configures workflow behavior.
       - name: Ensure resource group exists
         # Idempotent create; safe if resource group already exists.
         # What: multi-line command block. Why: execute grouped commands in one step.
@@ -184,7 +159,6 @@ jobs:
           # Azure CLI command executed against Azure control plane.
           az group create --name "$RESOURCE_GROUP" --location "$AZURE_LOCATION"
 
-      # This line configures workflow behavior.
       - name: Validate Bicep
         # Static + server-side ARM validation for template correctness.
         # What: multi-line command block. Why: execute grouped commands in one step.
@@ -200,14 +174,10 @@ jobs:
           # What: Azure CLI command. Why: validate/create/preview Azure resources.
           # Azure CLI command executed against Azure control plane.
           az deployment group validate \
-            # This line configures workflow behavior.
             --resource-group "$RESOURCE_GROUP" \
-            # This line configures workflow behavior.
             --template-file secure_azure_saas_iac/main.bicep \
-            # This line configures workflow behavior.
             --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas
 
-      # This line configures workflow behavior.
       - name: What-if
         # Change preview gate; helps detect destructive drift before apply.
         # What: multi-line command block. Why: execute grouped commands in one step.
@@ -220,11 +190,8 @@ jobs:
           # What: Azure CLI command. Why: validate/create/preview Azure resources.
           # Azure CLI command executed against Azure control plane.
           az deployment group what-if \
-            # This line configures workflow behavior.
             --resource-group "$RESOURCE_GROUP" \
-            # This line configures workflow behavior.
             --template-file secure_azure_saas_iac/main.bicep \
-            # This line configures workflow behavior.
             --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas
 
 
