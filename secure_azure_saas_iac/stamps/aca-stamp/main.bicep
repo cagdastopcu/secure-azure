@@ -15,6 +15,8 @@ param containerImage string
 param enablePublicWebIngress bool = false
 param allowedIngressCidrs array
 param tags object = {}
+@description('If true, apply CanNotDelete locks to critical resources in this stamp.')
+param applyDeleteLocks bool = false
 
 var acaEnvironmentName = '${projectPrefix}-${environment}-acae'
 var keyVaultName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(subscription().id, resourceGroup().name)}-kv', '_', '-'))
@@ -69,6 +71,24 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
       ipRules: []
       virtualNetworkRules: []
     }
+  }
+}
+
+resource acaEnvironmentLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
+  name: '${acaEnvironment.name}-delete-lock'
+  scope: acaEnvironment
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects ACA environment from accidental deletion.'
+  }
+}
+
+resource keyVaultLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
+  name: '${keyVault.name}-delete-lock'
+  scope: keyVault
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects Key Vault from accidental deletion.'
   }
 }
 

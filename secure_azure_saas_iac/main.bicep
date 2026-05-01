@@ -114,6 +114,9 @@ param budgetAlertEmail string = 'finops@example.com'
 @description('If true, deploy Azure Front Door + WAF edge protection.')
 param deployEdgeFrontDoor bool = false
 
+@description('If true, apply CanNotDelete locks to critical resources in app/data stamps.')
+param applyCriticalResourceDeleteLocks bool = false
+
 @description('If true, deploy baseline platform activity alerts.')
 param deployPlatformAlerts bool = false
 
@@ -239,6 +242,7 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     sqlDatabaseName: sqlDatabaseName
     sqlAdminLogin: sqlAdminLogin
     sqlAdminPassword: sqlAdminPassword
+    applyDeleteLocks: applyCriticalResourceDeleteLocks
     tags: tags
   }
 }
@@ -256,6 +260,7 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
     containerImage: bootstrapContainerImage
     enablePublicWebIngress: enablePublicWebIngress
     allowedIngressCidrs: allowedIngressCidrs
+    applyDeleteLocks: applyCriticalResourceDeleteLocks
     tags: tags
   }
 }

@@ -71,6 +71,8 @@ param sqlAdminPassword string = ''
 
 @description('Tags to apply to all resources.')
 param tags object = {}
+@description('If true, apply CanNotDelete locks to critical resources in this stamp.')
+param applyDeleteLocks bool = false
 
 var storageAccountName = toLower(replace('${projectPrefix}${environment}${uniqueString(resourceGroup().id)}sa', '-', ''))
 var serviceBusNamespaceName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(resourceGroup().id)}-sb', '_', '-'))
@@ -100,6 +102,15 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+resource storageLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
+  name: '${storageAccount.name}-delete-lock'
+  scope: storageAccount
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects Storage account from accidental deletion.'
+  }
+}
+
 resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2023-01-01-preview' = {
   name: serviceBusNamespaceName
   location: location
@@ -114,6 +125,15 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2023-01-01-preview
     minimumTlsVersion: '1.2'
     disableLocalAuth: true
     zoneRedundant: serviceBusSku == 'Premium'
+  }
+}
+
+resource serviceBusLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
+  name: '${serviceBusNamespace.name}-delete-lock'
+  scope: serviceBusNamespace
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects Service Bus namespace from accidental deletion.'
   }
 }
 
@@ -139,6 +159,15 @@ resource sqlServer 'Microsoft.Sql/servers@2023-08-01' = if (deploySql) {
     // Security: force modern transport and disable public endpoint.
     minimalTlsVersion: '1.2'
     publicNetworkAccess: 'Disabled'
+  }
+}
+
+resource sqlServerLock 'Microsoft.Authorization/locks@2020-05-01' = if (deploySql && applyDeleteLocks) {
+  name: '${sqlServer.name}-delete-lock'
+  scope: sqlServer
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects SQL server from accidental deletion.'
   }
 }
 
@@ -177,6 +206,15 @@ resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
   }
 }
 
+resource redisLock 'Microsoft.Authorization/locks@2020-05-01' = if (deployRedis && applyDeleteLocks) {
+  name: '${redisCache.name}-delete-lock'
+  scope: redisCache
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects Redis cache from accidental deletion.'
+  }
+}
+
 resource eventGridTopic 'Microsoft.EventGrid/topics@2022-06-15' = if (deployEventGrid) {
   name: toLower(replace('${projectPrefix}-${environment}-${eventGridTopicName}', '_', '-'))
   location: location
@@ -187,6 +225,15 @@ resource eventGridTopic 'Microsoft.EventGrid/topics@2022-06-15' = if (deployEven
   properties: {
     publicNetworkAccess: 'Disabled'
     inputSchema: 'EventGridSchema'
+  }
+}
+
+resource eventGridLock 'Microsoft.Authorization/locks@2020-05-01' = if (deployEventGrid && applyDeleteLocks) {
+  name: '${eventGridTopic.name}-delete-lock'
+  scope: eventGridTopic
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Protects Event Grid topic from accidental deletion.'
   }
 }
 
