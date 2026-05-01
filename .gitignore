@@ -1,0 +1,39 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Terraform (if added later)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Bicep/ARM artifacts
+*.bicepparam.backup
+*.json.tmp
+
+# Python / Node helpers (if added later)
+__pycache__/
+*.pyc
+node_modules/
+
+# Secrets and local env
+.env
+.env.*
+*.secret
+*.secrets
+
+# Azure CLI / local outputs
+*.log
+whatif-output*.json
+
+# Build/test caches
+.cache/
+.tmp/
+
+# GitHub local action cache
+.act/
