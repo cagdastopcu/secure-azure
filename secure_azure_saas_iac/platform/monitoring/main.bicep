@@ -1,3 +1,5 @@
+// Monitoring baseline module.
+// Creates centralized Log Analytics and workspace-based Application Insights.
 targetScope = 'resourceGroup'
 
 param location string
@@ -11,6 +13,7 @@ param tags object = {}
 var workspaceName = '${projectPrefix}-${environment}-law'
 var appInsightsName = '${projectPrefix}-${environment}-appi'
 
+// Core log store for platform and app telemetry.
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: workspaceName
   location: location
@@ -24,6 +27,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
+// App Insights linked to Log Analytics for unified querying.
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
   location: location
@@ -36,6 +40,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+// Outputs used by downstream modules/pipelines.
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsWorkspaceName string = logAnalytics.name
 output logAnalyticsPrimarySharedKey string = listKeys(logAnalytics.id, '2023-09-01').primarySharedKey

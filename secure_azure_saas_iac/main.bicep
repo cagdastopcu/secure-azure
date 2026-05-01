@@ -1,3 +1,6 @@
+// Root orchestrator template.
+// This file composes platform baseline modules (monitoring, network, policy)
+// and an application stamp module (ACA + Key Vault + identities + apps).
 targetScope = 'resourceGroup'
 
 @description('Primary deployment location for regional resources.')
@@ -35,12 +38,14 @@ param allowedIngressCidrs array = [
 ]
 
 var tags = {
+  // Shared governance tags propagated to all resources.
   environment: environment
   project: projectPrefix
   managedBy: 'bicep'
   workload: 'saas-platform'
 }
 
+// Monitoring first so workspace outputs can be consumed by the ACA stamp.
 module monitoring './platform/monitoring/main.bicep' = {
   name: 'monitoring-${projectPrefix}-${environment}'
   params: {
@@ -52,6 +57,7 @@ module monitoring './platform/monitoring/main.bicep' = {
   }
 }
 
+// Network baseline before workload deployment; provides subnet IDs.
 module network './platform/network/main.bicep' = {
   name: 'network-${projectPrefix}-${environment}'
   params: {
@@ -66,6 +72,7 @@ module network './platform/network/main.bicep' = {
 }
 
 
+// Policy baseline for regional restrictions and mandatory tags.
 module securityBaseline './platform/policy/security-baseline.bicep' = {
   name: 'policy-${projectPrefix}-${environment}'
   params: {
@@ -78,6 +85,7 @@ module securityBaseline './platform/policy/security-baseline.bicep' = {
     managedByTagValue: 'bicep'
   }
 }
+// Application stamp; depends on monitoring/network outputs for secure wiring.
 module acaStamp './stamps/aca-stamp/main.bicep' = {
   name: 'aca-stamp-${projectPrefix}-${environment}'
   params: {
@@ -94,6 +102,7 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
   }
 }
 
+// Useful outputs for operators and pipeline post-deploy steps.
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn

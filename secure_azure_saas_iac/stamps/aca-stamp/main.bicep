@@ -1,3 +1,9 @@
+// Application stamp module.
+// Provisions one secure runtime slice with:
+// - Azure Container Apps environment
+// - Key Vault + private endpoint
+// - user-assigned identities
+// - public web app + internal worker app
 targetScope = 'resourceGroup'
 
 param location string
@@ -17,6 +23,7 @@ var keyVaultName = toLower(replace('${projectPrefix}-${environment}-${uniqueStri
 var webAppName = '${projectPrefix}-${environment}-web'
 var workerAppName = '${projectPrefix}-${environment}-worker'
 
+// ACA environment attached to delegated subnet and Log Analytics workspace.
 resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   name: acaEnvironmentName
   location: location
@@ -42,6 +49,9 @@ resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   }
 }
 
+// Key Vault configured with RBAC, soft-delete, and purge-protection.
+// Public network remains enabled but firewalled (default deny), while
+// private endpoint is created later in this module for private access.
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
@@ -66,6 +76,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
+// Dedicated identities per app support least-privilege role assignments.
 resource webIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${webAppName}-id'
   location: location
@@ -78,6 +89,7 @@ resource workerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-0
   tags: tags
 }
 
+// Grant web app identity read-only secret access in Key Vault.
 resource kvSecretsUserWeb 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, webIdentity.properties.principalId, 'KeyVaultSecretsUser')
   scope: keyVault
@@ -88,6 +100,7 @@ resource kvSecretsUserWeb 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   }
 }
 
+// Grant worker app identity read-only secret access in Key Vault.
 resource kvSecretsUserWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(keyVault.id, workerIdentity.properties.principalId, 'KeyVaultSecretsUser')
   scope: keyVault
@@ -98,6 +111,7 @@ resource kvSecretsUserWorker 'Microsoft.Authorization/roleAssignments@2022-04-01
   }
 }
 
+// Internet-facing app. CIDR list is parameterized for stricter production controls.
 resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
   name: webAppName
   location: location
@@ -116,6 +130,7 @@ resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
         targetPort: 80
         transport: 'auto'
         ipSecurityRestrictions: [for cidr in allowedIngressCidrs: {
+          // One allow rule generated per CIDR input.
           name: 'allow-${replace(cidr, '/', '-')}'
           action: 'Allow'
           ipAddressRange: cidr
@@ -152,6 +167,7 @@ resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
   }
 }
 
+// Internal-only worker app for background processing.
 resource workerApp 'Microsoft.App/containerApps@2025-01-01' = {
   name: workerAppName
   location: location
@@ -201,6 +217,7 @@ resource workerApp 'Microsoft.App/containerApps@2025-01-01' = {
   }
 }
 
+// Private endpoint maps Key Vault to the private endpoint subnet.
 resource kvPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
   name: '${keyVaultName}-pe'
   location: location
@@ -223,6 +240,7 @@ resource kvPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
   }
 }
 
+// Operational outputs.
 output containerAppsEnvironmentName string = acaEnvironment.name
 output webContainerAppFqdn string = webApp.properties.configuration.ingress.fqdn
 output keyVaultName string = keyVault.name

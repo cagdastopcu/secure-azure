@@ -1,3 +1,5 @@
+# CI workflow for infrastructure validation.
+# Uses GitHub OIDC -> Azure login (secretless auth pattern).
 name: iac-deploy
 
 on:
@@ -6,16 +8,20 @@ on:
     branches: [ main ]
 
 permissions:
+  # Required for OIDC federation token issuance.
   id-token: write
+  # Required to read repository content.
   contents: read
 
 jobs:
   validate-and-whatif:
+    # Hosted Linux runner; deterministic environment for az cli usage.
     runs-on: ubuntu-latest
     env:
       AZURE_LOCATION: westeurope
       RESOURCE_GROUP: rg-saas-dev-platform
     steps:
+      # Pull repository content into runner workspace.
       - uses: actions/checkout@v4
 
       - name: Azure Login (OIDC)
@@ -26,10 +32,12 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure resource group exists
+        # Idempotent create; safe if resource group already exists.
         run: |
           az group create --name "$RESOURCE_GROUP" --location "$AZURE_LOCATION"
 
       - name: Validate Bicep
+        # Static + server-side ARM validation for template correctness.
         run: |
           az bicep install
           az deployment group validate \
@@ -38,6 +46,7 @@ jobs:
             --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas
 
       - name: What-if
+        # Change preview gate; helps detect destructive drift before apply.
         run: |
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
