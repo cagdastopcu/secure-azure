@@ -114,6 +114,12 @@ param budgetAlertEmail string = 'finops@example.com'
 @description('If true, deploy Azure Front Door + WAF edge protection.')
 param deployEdgeFrontDoor bool = false
 
+@description('If true, deploy baseline platform activity alerts.')
+param deployPlatformAlerts bool = false
+
+@description('Email destination for platform activity alerts.')
+param platformAlertEmail string = 'ops@example.com'
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -169,6 +175,18 @@ module defenderOnboarding './platform/security/defender-onboarding.bicep' = if (
   scope: subscription()
   location: location
   params: {}
+}
+
+// Optional baseline alert routing for operational/security activity signals.
+module platformAlerts './platform/monitoring/alerts.bicep' = if (deployPlatformAlerts) {
+  name: 'platform-alerts-${projectPrefix}-${environment}'
+  params: {
+    location: location
+    projectPrefix: projectPrefix
+    environment: environment
+    alertEmail: platformAlertEmail
+    tags: tags
+  }
 }
 
 // Optional cost budget guardrail (subscription scope).
@@ -256,5 +274,6 @@ output redisCacheResourceId string = deployDataStamp ? dataStamp.outputs.redisCa
 output sqlServerResourceId string = deployDataStamp ? dataStamp.outputs.sqlServerResourceId : ''
 output sqlDatabaseResourceId string = deployDataStamp ? dataStamp.outputs.sqlDatabaseResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
+output platformActionGroupId string = deployPlatformAlerts ? platformAlerts.outputs.actionGroupId : ''
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
