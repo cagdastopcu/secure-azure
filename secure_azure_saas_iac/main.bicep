@@ -54,6 +54,18 @@ param dataServiceBusSku string = 'Standard'
 @description('Default queue name in Service Bus namespace.')
 param dataQueueName string = 'app-events'
 
+@description('If true, enable Defender for Cloud plans at subscription scope.')
+param deployDefenderOnboarding bool = true
+
+@description('If true, deploy a subscription monthly budget alert.')
+param deployCostBudget bool = false
+
+@description('Monthly budget amount (subscription currency) when cost budget is enabled.')
+param monthlyBudgetAmount int = 1000
+
+@description('Budget alert email address when cost budget is enabled.')
+param budgetAlertEmail string = 'finops@example.com'
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -102,6 +114,27 @@ module securityBaseline './platform/policy/security-baseline.bicep' = {
   }
 }
 
+// Optional Defender for Cloud onboarding (subscription scope).
+module defenderOnboarding './platform/security/defender-onboarding.bicep' = if (deployDefenderOnboarding) {
+  name: 'defender-onboarding-${projectPrefix}-${environment}'
+  scope: subscription()
+  location: location
+  params: {}
+}
+
+// Optional cost budget guardrail (subscription scope).
+module costBudget './platform/governance/cost-budget.bicep' = if (deployCostBudget) {
+  name: 'cost-budget-${projectPrefix}-${environment}'
+  scope: subscription()
+  location: location
+  params: {
+    monthlyBudgetAmount: monthlyBudgetAmount
+    budgetAlertEmail: budgetAlertEmail
+    budgetName: '${projectPrefix}-${environment}-monthly-budget'
+    budgetStartDate: '${utcNow('yyyy-MM-01')}'
+  }
+}
+
 
 // Optional data/integration stamp from blueprint.
 module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
@@ -143,4 +176,5 @@ output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
 output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
 output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
+output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 
