@@ -6,8 +6,6 @@ param location string
 param projectPrefix string
 param environment string
 param logAnalyticsWorkspaceId string
-@secure()
-param logAnalyticsSharedKey string
 @description('If true, send Key Vault diagnostics to Log Analytics workspace.')
 param deployDiagnostics bool = false
 param infrastructureSubnetResourceId string
@@ -39,7 +37,8 @@ resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
         customerId: reference(logAnalyticsWorkspaceId, '2023-09-01').customerId
-        sharedKey: logAnalyticsSharedKey
+        // Security: resolve workspace shared key only inside this module to avoid secret propagation via outputs.
+        sharedKey: listKeys(logAnalyticsWorkspaceId, '2023-09-01').primarySharedKey
       }
     }
     workloadProfiles: [

@@ -4,6 +4,7 @@ Enterprise-style, security-first Infrastructure as Code baseline for Azure SaaS 
 
 This folder contains a modular Bicep implementation that deploys:
 - Platform baseline (network, monitoring, governance policy)
+- Optional API gateway baseline (Azure API Management)
 - Secure runtime stamp (Azure Container Apps + Key Vault + private networking)
 - CI validation workflow with OIDC and what-if controls
 
@@ -37,6 +38,11 @@ This IaC baseline is designed to avoid insecure “temporary” shortcuts by mak
 - `platform/policy/security-baseline.bicep`
   - Allowed locations policy assignment
   - Required tag/value policy assignments
+- `platform/api/main.bicep`
+  - Optional Azure API Management deployment for centralized API governance
+  - System-assigned managed identity
+  - Legacy TLS/cipher hardening via APIM custom properties
+  - Optional APIM diagnostics to Log Analytics
 
 ## 3.2 Workload Stamp
 - `stamps/aca-stamp/main.bicep`

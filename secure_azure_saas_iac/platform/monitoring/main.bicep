@@ -42,5 +42,4 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsWorkspaceName string = logAnalytics.name
-output logAnalyticsPrimarySharedKey string = listKeys(logAnalytics.id, '2023-09-01').primarySharedKey
 output appInsightsConnectionString string = appInsights.properties.ConnectionString

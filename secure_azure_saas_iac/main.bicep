@@ -137,6 +137,30 @@ param deployAdvancedPublicNetworkDenyPolicies bool = false
 @description('If true, export subscription Activity Log categories to Log Analytics for audit/incident response.')
 param deploySubscriptionActivityLogExport bool = true
 
+@description('If true, deploy Azure API Management as secure API gateway control plane.')
+param deployApiManagement bool = false
+
+@description('API Management publisher display name.')
+param apimPublisherName string = 'SaaS Platform Team'
+
+@description('API Management publisher email.')
+param apimPublisherEmail string = 'platform@example.com'
+
+@description('API Management SKU name.')
+@allowed([
+  'Developer'
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param apimSkuName string = 'Developer'
+
+@description('API Management SKU capacity/units.')
+param apimSkuCapacity int = 1
+
+@description('If true, enable API Management diagnostic logs to Log Analytics.')
+param deployApiManagementDiagnostics bool = true
+
 // Shared governance tags applied across modules.
 var tags = {
   environment: environment
@@ -275,7 +299,6 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
     projectPrefix: projectPrefix
     environment: environment
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
-    logAnalyticsSharedKey: monitoring.outputs.logAnalyticsPrimarySharedKey
     deployDiagnostics: deployResourceDiagnostics
     infrastructureSubnetResourceId: network.outputs.acaInfraSubnetResourceId
     privateEndpointSubnetResourceId: network.outputs.privateEndpointSubnetResourceId
@@ -283,6 +306,23 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
     enablePublicWebIngress: enablePublicWebIngress
     allowedIngressCidrs: allowedIngressCidrs
     applyDeleteLocks: applyCriticalResourceDeleteLocks
+    tags: tags
+  }
+}
+
+// Optional API gateway control plane from blueprint (monetization/governance entry point).
+module apiManagement './platform/api/main.bicep' = if (deployApiManagement) {
+  name: 'api-management-${projectPrefix}-${environment}'
+  params: {
+    location: location
+    projectPrefix: projectPrefix
+    environment: environment
+    publisherName: apimPublisherName
+    publisherEmail: apimPublisherEmail
+    skuName: apimSkuName
+    skuCapacity: apimSkuCapacity
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+    deployDiagnostics: deployApiManagementDiagnostics
     tags: tags
   }
 }
@@ -319,4 +359,6 @@ output platformActionGroupId string = deployPlatformAlerts ? platformAlerts!.out
 output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies!.outputs.assignmentNames : []
 output activityLogDiagnosticSettingName string = deploySubscriptionActivityLogExport ? activityLogExport!.outputs.activityLogDiagnosticSettingName : ''
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor!.outputs.frontDoorEndpointHostName : ''
+output apiManagementServiceName string = deployApiManagement ? apiManagement!.outputs.apiManagementServiceName : ''
+output apiManagementGatewayUrl string = deployApiManagement ? apiManagement!.outputs.apiManagementGatewayUrl : ''
 
