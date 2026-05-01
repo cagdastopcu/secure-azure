@@ -14,6 +14,11 @@ It is aligned to:
 - NIST SP 800-61 Rev. 3 incident response recommendations
 - Azure incident response guidance
 - Microsoft Defender XDR + Microsoft Sentinel incident operations
+- CISA incident coordination model
+
+Use this playbook together with:
+- `00-soc-operating-standard.md`
+- `11-kql-starter-queries.md`
 
 ## 3. Scope
 In scope systems:
@@ -236,6 +241,9 @@ Within 5 business days:
 - Defender for Cloud workflow automation:
   - Route high-confidence alerts to incident channel and ticketing.
 
+Portal strategy note:
+- Plan and operate incident workflows in the Microsoft Defender portal as primary interface for Sentinel incident operations.
+
 ## 19. Azure SaaS-Specific Hardening Follow-Ups After Any Breach
 - Revalidate Key Vault private endpoint + RBAC only model.
 - Confirm Container Apps ingress and revision policy settings.
@@ -266,4 +274,3 @@ Within 5 business days:
   - https://learn.microsoft.com/en-us/azure/key-vault/general/key-vault-recovery
 - Container Apps revision management (rollback operations):
   - https://learn.microsoft.com/en-us/azure/container-apps/revisions-manage
-
