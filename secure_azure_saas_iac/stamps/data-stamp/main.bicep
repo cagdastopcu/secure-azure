@@ -27,6 +27,12 @@ param serviceBusSku string = 'Standard'
 @description('Default queue name for app messaging.')
 param defaultQueueName string = 'app-events'
 
+@description('If true, deploy Event Grid topic with private endpoint.')
+param deployEventGrid bool = false
+
+@description('Event Grid topic name (if enabled).')
+param eventGridTopicName string = 'app-events-topic'
+
 @description('Tags to apply to all resources.')
 param tags object = {}
 
@@ -86,6 +92,19 @@ resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2023-01-01-prev
   }
 }
 
+resource eventGridTopic 'Microsoft.EventGrid/topics@2022-06-15' = if (deployEventGrid) {
+  name: toLower(replace('${projectPrefix}-${environment}-${eventGridTopicName}', '_', '-'))
+  location: location
+  tags: tags
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    publicNetworkAccess: 'Disabled'
+    inputSchema: 'EventGridSchema'
+  }
+}
+
 resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
   name: '${storageAccount.name}-blob-pe'
   location: location
@@ -130,6 +149,28 @@ resource serviceBusPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-0
   }
 }
 
+resource eventGridPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = if (deployEventGrid) {
+  name: '${eventGridTopic.name}-pe'
+  location: location
+  tags: tags
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetResourceId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'eventgrid-connection'
+        properties: {
+          privateLinkServiceId: eventGridTopic.id
+          groupIds: [
+            'topic'
+          ]
+        }
+      }
+    ]
+  }
+}
+
 resource storagePrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.blob.core.windows.net'
   location: 'global'
@@ -138,6 +179,12 @@ resource storagePrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = 
 
 resource serviceBusPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.servicebus.windows.net'
+  location: 'global'
+  tags: tags
+}
+
+resource eventGridPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = if (deployEventGrid) {
+  name: 'privatelink.eventgrid.azure.net'
   location: 'global'
   tags: tags
 }
@@ -155,6 +202,17 @@ resource storageDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
 
 resource serviceBusDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: 'privatelink.servicebus.windows.net/${projectPrefix}-${environment}-sb-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnetResourceId
+    }
+  }
+}
+
+resource eventGridDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = if (deployEventGrid) {
+  name: 'privatelink.eventgrid.azure.net/${projectPrefix}-${environment}-eg-dns-link'
   location: 'global'
   properties: {
     registrationEnabled: false
@@ -192,8 +250,23 @@ resource serviceBusPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDns
   }
 }
 
+resource eventGridPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = if (deployEventGrid) {
+  name: '${eventGridPrivateEndpoint.name}/default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'eventgrid-dns-config'
+        properties: {
+          privateDnsZoneId: eventGridPrivateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
 output storageAccountName string = storageAccount.name
 output serviceBusNamespaceName string = serviceBusNamespace.name
 output serviceBusQueueName string = defaultQueueName
 output storageAccountId string = storageAccount.id
 output serviceBusNamespaceId string = serviceBusNamespace.id
+output eventGridTopicResourceId string = deployEventGrid ? eventGridTopic.id : ''

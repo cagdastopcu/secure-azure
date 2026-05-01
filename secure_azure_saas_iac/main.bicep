@@ -54,6 +54,12 @@ param dataServiceBusSku string = 'Standard'
 @description('Default queue name in Service Bus namespace.')
 param dataQueueName string = 'app-events'
 
+@description('If true, deploy private Event Grid topic in data stamp.')
+param deployEventGrid bool = false
+
+@description('Event Grid topic name when enabled.')
+param eventGridTopicName string = 'app-events-topic'
+
 @description('If true, enable Defender for Cloud plans at subscription scope.')
 param deployDefenderOnboarding bool = true
 
@@ -150,6 +156,8 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     storageSku: dataStorageSku
     serviceBusSku: dataServiceBusSku
     defaultQueueName: dataQueueName
+    deployEventGrid: deployEventGrid
+    eventGridTopicName: eventGridTopicName
     tags: tags
   }
 }
@@ -192,6 +200,7 @@ output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
 output storageAccountName string = deployDataStamp ? dataStamp.outputs.storageAccountName : ''
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp.outputs.serviceBusNamespaceName : ''
 output serviceBusQueueName string = deployDataStamp ? dataStamp.outputs.serviceBusQueueName : ''
+output eventGridTopicResourceId string = deployDataStamp ? dataStamp.outputs.eventGridTopicResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding.outputs.enabledPlans : []
 output frontDoorEndpointHostName string = deployEdgeFrontDoor && enablePublicWebIngress ? edgeFrontDoor.outputs.frontDoorEndpointHostName : ''
 
