@@ -15,6 +15,8 @@ param logAnalyticsSharedKey string
 param infrastructureSubnetResourceId string
 param privateEndpointSubnetResourceId string
 param containerImage string
+@description('Controls whether the web app is publicly reachable. Keep false unless you intentionally publish internet endpoints.')
+param enablePublicWebIngress bool = false
 param allowedIngressCidrs array
 param tags object = {}
 
@@ -22,6 +24,8 @@ var acaEnvironmentName = '${projectPrefix}-${environment}-acae'
 var keyVaultName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(subscription().id, resourceGroup().name)}-kv', '_', '-'))
 var webAppName = '${projectPrefix}-${environment}-web'
 var workerAppName = '${projectPrefix}-${environment}-worker'
+// Derive parent VNet id from subnet id for private DNS zone linking.
+var vnetResourceId = split(infrastructureSubnetResourceId, '/subnets/')[0]
 
 // ACA environment attached to delegated subnet and Log Analytics workspace.
 resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
@@ -66,9 +70,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
       family: 'A'
       name: 'standard'
     }
-    publicNetworkAccess: 'Enabled'
+    // Security hardening: disable public endpoint access entirely.
+    // Access is forced through private endpoint.
+    publicNetworkAccess: 'Disabled'
     networkAcls: {
-      bypass: 'AzureServices'
+      // Security hardening: no broad trusted-service bypass.
+      // This reduces unintended data-plane exposure.
+      bypass: 'None'
       defaultAction: 'Deny'
       ipRules: []
       virtualNetworkRules: []
@@ -126,9 +134,11 @@ resource webApp 'Microsoft.App/containerApps@2025-01-01' = {
     managedEnvironmentId: acaEnvironment.id
     configuration: {
       ingress: {
-        external: true
+        // Security hardening: internal-only by default.
+        external: enablePublicWebIngress
         targetPort: 80
         transport: 'auto'
+        // Security hardening: when public ingress is enabled, explicitly allow only trusted CIDRs.
         ipSecurityRestrictions: [for cidr in allowedIngressCidrs: {
           // One allow rule generated per CIDR input.
           name: 'allow-${replace(cidr, '/', '-')}'
@@ -234,6 +244,40 @@ resource kvPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
           groupIds: [
             'vault'
           ]
+        }
+      }
+    ]
+  }
+}
+
+// Private DNS zone required so workloads resolve Key Vault hostname to private IP.
+resource kvPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.vaultcore.azure.net'
+  location: 'global'
+  tags: tags
+}
+
+// Link private DNS zone to VNet hosting the ACA environment.
+resource kvDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  name: 'privatelink.vaultcore.azure.net/${projectPrefix}-${environment}-kv-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnetResourceId
+    }
+  }
+}
+
+// Attach the private endpoint to the Key Vault private DNS zone.
+resource kvPrivateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
+  name: '${kvPrivateEndpoint.name}/default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'kv-dns-config'
+        properties: {
+          privateDnsZoneId: kvPrivateDnsZone.id
         }
       }
     ]

@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  # Security/ops hardening: prevent overlapping infrastructure validations on same branch.
+  group: iac-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   # Required for OIDC federation token issuance.
   id-token: write
@@ -17,6 +22,8 @@ jobs:
   validate-and-whatif:
     # Hosted Linux runner; deterministic environment for az cli usage.
     runs-on: ubuntu-latest
+    # Security/ops hardening: keep token lifetime and runner exposure window short.
+    timeout-minutes: 20
     env:
       AZURE_LOCATION: westeurope
       RESOURCE_GROUP: rg-saas-dev-platform

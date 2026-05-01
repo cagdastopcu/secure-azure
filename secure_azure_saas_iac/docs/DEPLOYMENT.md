@@ -20,3 +20,4 @@ az deployment group create \
 - Replace `allowedIngressCidrs` default (`0.0.0.0/0`) with strict CIDR ranges before production.
 - Use OIDC federation in GitHub Actions; do not use long-lived client secrets.
 - Extend with policy assignments and private DNS zones per your enterprise landing zone.
+

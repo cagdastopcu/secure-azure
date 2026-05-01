@@ -34,8 +34,13 @@ param bootstrapContainerImage string = 'mcr.microsoft.com/azuredocs/containerapp
 
 @description('Allowed CIDR ranges for public web app ingress. Use narrow corporate ranges in production.')
 param allowedIngressCidrs array = [
-  '0.0.0.0/0'
+  // Security default: do not expose to all internet by default.
+  // Provide explicit trusted CIDRs when enablePublicWebIngress is true.
+  '10.0.0.0/8'
 ]
+
+@description('If true, web app is internet-facing. If false, web app is internal-only inside ACA environment.')
+param enablePublicWebIngress bool = false
 
 var tags = {
   // Shared governance tags propagated to all resources.
@@ -97,6 +102,7 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
     infrastructureSubnetResourceId: network.outputs.acaInfraSubnetResourceId
     privateEndpointSubnetResourceId: network.outputs.privateEndpointSubnetResourceId
     containerImage: bootstrapContainerImage
+    enablePublicWebIngress: enablePublicWebIngress
     allowedIngressCidrs: allowedIngressCidrs
     tags: tags
   }
