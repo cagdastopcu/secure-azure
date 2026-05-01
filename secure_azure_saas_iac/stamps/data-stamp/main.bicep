@@ -1,3 +1,16 @@
+// -----------------------------------------------------------------------------
+// GLOSSARY + SAAS CONTEXT
+// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+// - Module: Reusable deployment unit with parameters and outputs.
+// - Parameter: Input value used to customize deployment per SaaS environment.
+// - Resource: Azure object created by this file.
+// - Output: Value exported for other modules/tests/pipelines.
+// - Least privilege: Grant identities only permissions they strictly need.
+// - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+// - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+// - SaaS use here: Deploys private data and messaging foundation used by SaaS services.
+// -----------------------------------------------------------------------------
+
 // Data/integration stamp for SaaS platform.
 // Why: provides secure shared state + messaging baseline aligned to blueprint.
 targetScope = 'resourceGroup'
@@ -78,10 +91,14 @@ param tags object = {}
 @description('If true, apply CanNotDelete locks to critical resources in this stamp.')
 param applyDeleteLocks bool = false
 
+// Storage account name: lowercase, globally unique, and deterministic for this RG.
 var storageAccountName = toLower(replace('${projectPrefix}${environment}${uniqueString(resourceGroup().id)}sa', '-', ''))
+// Service Bus namespace name: globally unique with environment scoping.
 var serviceBusNamespaceName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(resourceGroup().id)}-sb', '_', '-'))
+// VNet ID extracted from subnet ID for DNS zone virtual network links.
 var vnetResourceId = split(privateEndpointSubnetResourceId, '/subnets/')[0]
 
+// Storage holds tenant/static objects with private-only data plane access.
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
@@ -106,6 +123,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+// Logs/metrics enable forensic analysis and anomaly detection for storage operations.
 resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployDiagnostics) {
   scope: storageAccount
   name: 'storage-diagnostics'
@@ -126,6 +144,7 @@ resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-pr
   }
 }
 
+// Delete lock reduces accidental service outage from mistaken resource deletion.
 resource storageLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
   name: '${storageAccount.name}-delete-lock'
   scope: storageAccount
@@ -135,6 +154,7 @@ resource storageLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDelet
   }
 }
 
+// Service Bus provides durable async messaging backbone for internal services.
 resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2023-01-01-preview' = {
   name: serviceBusNamespaceName
   location: location
@@ -152,6 +172,7 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2023-01-01-preview
   }
 }
 
+// Service Bus telemetry is critical for queue lag and failure investigation.
 resource serviceBusDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployDiagnostics) {
   scope: serviceBusNamespace
   name: 'servicebus-diagnostics'
@@ -181,6 +202,7 @@ resource serviceBusLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDe
   }
 }
 
+// Default queue baseline for app events and background processing.
 resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2023-01-01-preview' = {
   name: '${serviceBusNamespace.name}/${defaultQueueName}'
   properties: {
@@ -192,6 +214,7 @@ resource serviceBusQueue 'Microsoft.ServiceBus/namespaces/queues@2023-01-01-prev
   }
 }
 
+// Optional SQL server/database for relational workloads requiring transactional semantics.
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01' = if (deploySql) {
   name: toLower(replace('${projectPrefix}-${environment}-${sqlServerNameSuffix}', '_', '-'))
   location: location
@@ -249,6 +272,7 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = if (deploySq
   }
 }
 
+// Optional Redis cache for low-latency reads and transient state.
 resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
   name: toLower(replace('${projectPrefix}-${environment}-${redisNameSuffix}', '_', '-'))
   location: location
@@ -299,6 +323,7 @@ resource redisLock 'Microsoft.Authorization/locks@2020-05-01' = if (deployRedis 
   }
 }
 
+// Optional Event Grid topic for pub/sub style event fan-out.
 resource eventGridTopic 'Microsoft.EventGrid/topics@2022-06-15' = if (deployEventGrid) {
   name: toLower(replace('${projectPrefix}-${environment}-${eventGridTopicName}', '_', '-'))
   location: location
@@ -341,6 +366,7 @@ resource eventGridLock 'Microsoft.Authorization/locks@2020-05-01' = if (deployEv
   }
 }
 
+// Private Endpoints force service traffic to stay on Microsoft backbone/private address space.
 resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
   name: '${storageAccount.name}-blob-pe'
   location: location
@@ -451,6 +477,7 @@ resource eventGridPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01
   }
 }
 
+// Private DNS zones map public service hostnames to Private Endpoint IPs inside VNet.
 resource storagePrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: 'privatelink.blob.core.windows.net'
   location: 'global'
@@ -481,6 +508,7 @@ resource eventGridPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' 
   tags: tags
 }
 
+// DNS virtual network links make private zone records resolvable from workload subnets.
 resource storageDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: 'privatelink.blob.core.windows.net/${projectPrefix}-${environment}-blob-dns-link'
   location: 'global'
@@ -536,6 +564,7 @@ resource eventGridDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkL
   }
 }
 
+// DNS zone groups attach each Private Endpoint to the correct private DNS zone automatically.
 resource storagePeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
   name: '${storagePrivateEndpoint.name}/default'
   properties: {
@@ -606,6 +635,7 @@ resource eventGridPeDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZ
   }
 }
 
+// Outputs expose IDs/names needed by application modules and CI/CD integration.
 output storageAccountName string = storageAccount.name
 output serviceBusNamespaceName string = serviceBusNamespace.name
 output serviceBusQueueName string = defaultQueueName

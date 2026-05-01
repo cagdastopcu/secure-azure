@@ -1,61 +1,50 @@
 # -----------------------------------------------------------------------------
-# TERM GLOSSARY (this script)
-# - Param block: Declares script input parameters.
-# - Function: Reusable block of script logic.
-# - Throw: Stops execution with explicit error.
-# - ErrorActionPreference=Stop: Fail fast on errors.
-# - Assert: Check expected condition and fail if missing.
+# GLOSSARY + SAAS CONTEXT
+# - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+# - Module: Reusable deployment unit with parameters and outputs.
+# - Parameter: Input value used to customize deployment per SaaS environment.
+# - Resource: Azure object created by this file.
+# - Output: Value exported for other modules/tests/pipelines.
+# - Least privilege: Grant identities only permissions they strictly need.
+# - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+# - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+# - SaaS use here: Compiles all Bicep files so SaaS IaC errors are detected before deployment.
 # -----------------------------------------------------------------------------
-# What: start script parameters. Why: caller can pass custom values.
+
 param(
-  # What: script input value. Why: configurable path/option.
+  # Root folder of the IaC project; defaults to two levels above this script.
   [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-# What/Why: this line is part of script control flow or value assignment.
 )
 
-# What: stop-on-error mode. Why: fail immediately in CI.
+# Fail fast in CI so broken templates stop the pipeline immediately.
 $ErrorActionPreference = 'Stop'
 
-# What: helper function definition. Why: reusable logic block.
+# Guard: require external command before using it.
 function Require-Command {
-  # What: start script parameters. Why: caller can pass custom values.
   param([string]$Name)
-  # What: condition check. Why: branch based on pass/fail state.
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-    # What: explicit failure. Why: stop pipeline when requirement is missing.
     throw "Required command not found: $Name"
-  # What: close code block. Why: end current scope.
   }
-# What: close code block. Why: end current scope.
 }
 
-# What/Why: this line is part of script control flow or value assignment.
+# Azure CLI is required because this script uses `az bicep build`.
 Require-Command -Name 'az'
 
-# What: log output. Why: show progress/results in CI logs.
 Write-Host "[validate-iac] Installing/updating Bicep CLI via Azure CLI..."
-# What: Azure CLI command. Why: compile/validate templates.
 az bicep install | Out-Null
 
-# What/Why: this line is part of script control flow or value assignment.
+# Build all Bicep files recursively so module-level errors are caught early.
 $bicepFiles = Get-ChildItem -Path $IaCRoot -Recurse -Filter '*.bicep' -File
-# What: condition check. Why: branch based on pass/fail state.
 if (-not $bicepFiles) {
-  # What: explicit failure. Why: stop pipeline when requirement is missing.
   throw 'No .bicep files found to validate.'
-# What: close code block. Why: end current scope.
 }
 
-# What: loop start. Why: run check for each item.
 foreach ($file in $bicepFiles) {
-  # What: log output. Why: show progress/results in CI logs.
   Write-Host "[validate-iac] Building: $($file.FullName)"
-  # What: Azure CLI command. Why: compile/validate templates.
+  # Compile each file independently; this catches syntax, type, and module-reference errors.
   az bicep build --file $file.FullName | Out-Null
-# What: close code block. Why: end current scope.
 }
 
-# What: log output. Why: show progress/results in CI logs.
 Write-Host "[validate-iac] Success: all Bicep files compiled."
 
 

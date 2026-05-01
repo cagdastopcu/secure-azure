@@ -1,199 +1,108 @@
 # -----------------------------------------------------------------------------
-# TERM GLOSSARY (this workflow)
-# - Workflow: GitHub Actions automation definition.
-# - Job: Independent runner execution unit in a workflow.
-# - Step: Individual command/action inside a job.
-# - OIDC: OpenID Connect federation for short-lived cloud auth.
-# - GITHUB_TOKEN permissions: Scoped rights granted to workflow token.
-# - Concurrency group: Prevents overlapping runs for same key.
-# - What-if: Azure ARM change preview without applying resources.
+# GLOSSARY + SAAS CONTEXT
+# - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+# - Module: Reusable deployment unit with parameters and outputs.
+# - Parameter: Input value used to customize deployment per SaaS environment.
+# - Resource: Azure object created by this file.
+# - Output: Value exported for other modules/tests/pipelines.
+# - Least privilege: Grant identities only permissions they strictly need.
+# - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+# - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+# - SaaS use here: Main CI workflow that validates SaaS IaC and runs what-if before merge.
 # -----------------------------------------------------------------------------
-# CI workflow for infrastructure validation.
-# Uses GitHub OIDC -> Azure login (secretless auth pattern).
-# What: workflow/job/step name. Why: readable label in GitHub UI.
-# Name shown in GitHub Actions UI.
+
+# Infrastructure CI workflow for Azure Bicep code.
 name: iac-deploy
 
-# What: workflow triggers section. Why: defines when CI starts.
-# Starts workflow trigger rules.
+# Run automatically on PRs to primary branches, and allow manual execution.
 on:
-  # What: manual trigger. Why: run workflow on demand.
-  # Allows manual run from GitHub Actions tab.
   workflow_dispatch:
-  # What: PR trigger. Why: validate changes before merge.
-  # Runs this workflow for pull request events.
   pull_request:
-    # Support both legacy and current default branch names.
-    # What: branch filter. Why: run only for listed target branches.
-    # Only PRs targeting these branches will trigger this workflow.
     branches: [ main, master ]
 
+# Prevent overlapping runs on the same branch to avoid conflicting Azure operations.
 concurrency:
-  # Security/ops hardening: prevent overlapping infrastructure validations on same branch.
   group: iac-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Security: limits what the workflow token is allowed to do.
-# What: token permissions block. Why: least-privilege security.
-# Starts token permission block for least-privilege workflow access.
+# Least-privilege token scope: OIDC login + read-only repository access.
 permissions:
-  # Required for OIDC federation token issuance.
-  # Needed so GitHub can log in to Azure without saved secrets.
-  # What: OIDC token permission. Why: required for secretless Azure login.
-  # Needed for OIDC federation login to Azure without long-lived secrets.
   id-token: write
-  # Required to read repository content.
-  # Allows workflow to read code files only.
-  # What: repository read permission. Why: allows checkout without write access.
-  # Read-only access to repository contents.
   contents: read
 
-# What: starts jobs section. Why: defines CI execution units.
-# Starts job definitions.
 jobs:
   static-tests:
-    # What: runner image. Why: determines execution environment.
-    # Selects the runner machine image for this job.
     runs-on: ubuntu-latest
-    # What: job timeout. Why: avoids hung jobs and wasted runtime.
-    # Stops the job if it runs too long.
     timeout-minutes: 15
-    # What: steps section. Why: commands run in this order.
-    # Starts ordered steps run by this job.
     steps:
-      # What: action call. Why: reuse standard workflow functionality.
-      # Uses a reusable GitHub Action.
       - uses: actions/checkout@v4
-        # What: action inputs. Why: configure behavior of action above.
-        # Starts configuration inputs for the action above.
         with:
-          # What: do not persist git token. Why: reduces credential misuse risk.
-          # Security: do not keep checkout token in git config.
+          # Do not keep checkout credentials in local git config.
           persist-credentials: false
-          # What: shallow checkout. Why: faster and smaller clone.
-          # Shallow checkout for faster, smaller clone.
+          # Shallow clone is enough for validation and speeds up CI.
           fetch-depth: 1
 
       - name: Azure CLI check
         run: az version
 
       - name: Run Bicep compile tests
-        # What: PowerShell shell selection. Why: required for pwsh script syntax.
-        # Runs this step using PowerShell shell.
         shell: pwsh
-        # What: multi-line command block. Why: execute grouped commands in one step.
-        # Starts multi-line command script.
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           ./secure_azure_saas_iac/tests/scripts/validate-iac.ps1
 
       - name: Run security assertions
-        # What: PowerShell shell selection. Why: required for pwsh script syntax.
-        # Runs this step using PowerShell shell.
         shell: pwsh
-        # What: multi-line command block. Why: execute grouped commands in one step.
-        # Starts multi-line command script.
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           ./secure_azure_saas_iac/tests/scripts/assert-security.ps1
 
   validate-and-whatif:
-    # What: job dependency. Why: this job waits for previous required job.
-    # This job waits for required previous job(s) to pass.
     needs: [static-tests]
-    # Hosted Linux runner; deterministic environment for az cli usage.
-    # What: runner image. Why: determines execution environment.
-    # Selects the runner machine image for this job.
     runs-on: ubuntu-latest
-    # Security/ops hardening: keep token lifetime and runner exposure window short.
-    # What: job timeout. Why: avoids hung jobs and wasted runtime.
-    # Stops the job if it runs too long.
     timeout-minutes: 20
     env:
-      # Security hardening: avoid printing command outputs that might include sensitive values.
+      # Hide default CLI command output to reduce accidental sensitive log exposure.
       AZURE_CORE_OUTPUT: none
       AZURE_LOCATION: westeurope
       RESOURCE_GROUP: rg-saas-dev-platform
-    # What: steps section. Why: commands run in this order.
-    # Starts ordered steps run by this job.
     steps:
-      # Pull repository content into runner workspace.
-      # Further hardening option: pin to full commit SHA instead of major tag.
-      # What: action call. Why: reuse standard workflow functionality.
-      # Uses a reusable GitHub Action.
       - uses: actions/checkout@v4
-        # What: action inputs. Why: configure behavior of action above.
-        # Starts configuration inputs for the action above.
         with:
-          # Security hardening: do not persist token creds in git config for later steps.
-          # What: do not persist git token. Why: reduces credential misuse risk.
-          # Security: do not keep checkout token in git config.
           persist-credentials: false
-          # Security hardening: least history required for validation job.
-          # What: shallow checkout. Why: faster and smaller clone.
-          # Shallow checkout for faster, smaller clone.
           fetch-depth: 1
 
       - name: Azure Login (OIDC)
-        # Further hardening option: pin this action to a full commit SHA.
         uses: azure/login@v2
-        # What: action inputs. Why: configure behavior of action above.
-        # Starts configuration inputs for the action above.
         with:
+          # Federated login avoids long-lived cloud secrets in GitHub.
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure resource group exists
-        # Idempotent create; safe if resource group already exists.
-        # What: multi-line command block. Why: execute grouped commands in one step.
-        # Starts multi-line command script.
         run: |
-          # Safety: stop immediately if any command fails.
-          # What: strict shell mode. Why: fail fast on command errors.
-          # Fail-fast mode: stop immediately on command or variable errors.
           set -euo pipefail
-          # What: Azure CLI command. Why: validate/create/preview Azure resources.
-          # Azure CLI command executed against Azure control plane.
+          # Idempotent create: safe if RG already exists.
           az group create --name "$RESOURCE_GROUP" --location "$AZURE_LOCATION"
 
       - name: Validate Bicep
-        # Static + server-side ARM validation for template correctness.
-        # What: multi-line command block. Why: execute grouped commands in one step.
-        # Starts multi-line command script.
         run: |
-          # Safety: stop immediately if any command fails.
-          # What: strict shell mode. Why: fail fast on command errors.
-          # Fail-fast mode: stop immediately on command or variable errors.
           set -euo pipefail
-          # What: Azure CLI command. Why: validate/create/preview Azure resources.
-          # Azure CLI command executed against Azure control plane.
           az bicep install
-          # What: Azure CLI command. Why: validate/create/preview Azure resources.
-          # Azure CLI command executed against Azure control plane.
+          # Server-side template validation catches ARM-level errors early.
           az deployment group validate \
             --resource-group "$RESOURCE_GROUP" \
             --template-file secure_azure_saas_iac/main.bicep \
             --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas
 
       - name: What-if
-        # Change preview gate; helps detect destructive drift before apply.
-        # What: multi-line command block. Why: execute grouped commands in one step.
-        # Starts multi-line command script.
         run: |
-          # Safety: stop immediately if any command fails.
-          # What: strict shell mode. Why: fail fast on command errors.
-          # Fail-fast mode: stop immediately on command or variable errors.
           set -euo pipefail
-          # What: Azure CLI command. Why: validate/create/preview Azure resources.
-          # Azure CLI command executed against Azure control plane.
+          # Preview changes before apply to detect destructive drift in PR stage.
           az deployment group what-if \
             --resource-group "$RESOURCE_GROUP" \
             --template-file secure_azure_saas_iac/main.bicep \
             --parameters location="$AZURE_LOCATION" environment=dev projectPrefix=saas
-
-
-
-

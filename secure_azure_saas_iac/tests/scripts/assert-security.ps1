@@ -1,65 +1,58 @@
 # -----------------------------------------------------------------------------
-# TERM GLOSSARY (this script)
-# - Param block: Declares script input parameters.
-# - Function: Reusable block of script logic.
-# - Throw: Stops execution with explicit error.
-# - ErrorActionPreference=Stop: Fail fast on errors.
-# - Assert: Check expected condition and fail if missing.
+# GLOSSARY + SAAS CONTEXT
+# - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+# - Module: Reusable deployment unit with parameters and outputs.
+# - Parameter: Input value used to customize deployment per SaaS environment.
+# - Resource: Azure object created by this file.
+# - Output: Value exported for other modules/tests/pipelines.
+# - Least privilege: Grant identities only permissions they strictly need.
+# - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+# - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+# - SaaS use here: Validates that critical SaaS security defaults are present in IaC files.
 # -----------------------------------------------------------------------------
-# What: start script parameters. Why: caller can pass custom values.
+
 param(
-  # What: script input value. Why: configurable path/option.
+  # Root folder of the IaC project; defaults to two levels above this script.
   [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-# What/Why: this line is part of script control flow or value assignment.
 )
 
-# What: stop-on-error mode. Why: fail immediately in CI.
+# Fail fast to ensure any missing hardening control breaks CI.
 $ErrorActionPreference = 'Stop'
 
-# What: helper function definition. Why: reusable logic block.
+# Helper that asserts a regex pattern exists in a target file.
 function Assert-Contains {
-  # What: start script parameters. Why: caller can pass custom values.
   param(
-    # What: script input value. Why: configurable path/option.
+    # File path to inspect.
     [string]$Path,
-    # What: script input value. Why: configurable path/option.
+    # Regex pattern representing the required security control.
     [string]$Pattern,
-    # What: script input value. Why: configurable path/option.
+    # Human-readable assertion name shown in test output.
     [string]$Message
-  # What/Why: this line is part of script control flow or value assignment.
   )
 
-  # What/Why: this line is part of script control flow or value assignment.
   $content = Get-Content -LiteralPath $Path -Raw
-  # What: condition check. Why: branch based on pass/fail state.
   if ($content -notmatch $Pattern) {
-    # What: explicit failure. Why: stop pipeline when requirement is missing.
     throw "[assert-security] FAIL: $Message`n  File: $Path`n  Pattern: $Pattern"
-  # What: close code block. Why: end current scope.
   }
 
-  # What: log output. Why: show progress/results in CI logs.
   Write-Host "[assert-security] PASS: $Message"
-# What: close code block. Why: end current scope.
 }
 
-# What/Why: this line is part of script control flow or value assignment.
+# Key files checked by this policy test.
 $stamp = Join-Path $IaCRoot 'stamps\aca-stamp\main.bicep'
-# What/Why: this line is part of script control flow or value assignment.
 $rootMain = Join-Path $IaCRoot 'main.bicep'
 
-# What: assertion call. Why: enforce required security baseline setting.
+# Public ingress defaults to private-first model.
 Assert-Contains -Path $rootMain -Pattern "param\s+enablePublicWebIngress\s+bool\s*=\s*false" -Message 'Public web ingress defaults to disabled.'
-# What: assertion call. Why: enforce required security baseline setting.
+# Key Vault must not expose a public endpoint.
 Assert-Contains -Path $stamp -Pattern "publicNetworkAccess:\s*'Disabled'" -Message 'Key Vault public network access is disabled.'
-# What: assertion call. Why: enforce required security baseline setting.
+# Insecure HTTP must be disabled on app ingress.
 Assert-Contains -Path $stamp -Pattern "allowInsecure:\s*false" -Message 'Container Apps ingress disallows insecure HTTP.'
-# What: assertion call. Why: enforce required security baseline setting.
+# At least one workload is internal-only to enforce private service pattern.
 Assert-Contains -Path $stamp -Pattern "external:\s*false" -Message 'At least one app (worker) is internal-only.'
-# What: assertion call. Why: enforce required security baseline setting.
+# Private DNS zone is required for Key Vault private endpoint resolution.
 Assert-Contains -Path $stamp -Pattern "resource\s+kvPrivateDnsZone\s+'Microsoft.Network/privateDnsZones@" -Message 'Private DNS zone for Key Vault private endpoint exists.'
 
-# What: log output. Why: show progress/results in CI logs.
 Write-Host '[assert-security] Success: security baseline assertions passed.'
 
 

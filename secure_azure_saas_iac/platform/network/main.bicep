@@ -1,23 +1,48 @@
+// -----------------------------------------------------------------------------
+// GLOSSARY + SAAS CONTEXT
+// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+// - Module: Reusable deployment unit with parameters and outputs.
+// - Parameter: Input value used to customize deployment per SaaS environment.
+// - Resource: Azure object created by this file.
+// - Output: Value exported for other modules/tests/pipelines.
+// - Least privilege: Grant identities only permissions they strictly need.
+// - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+// - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+// - SaaS use here: Builds core private network boundaries for SaaS runtime and private endpoints.
+// -----------------------------------------------------------------------------
+
 // Network baseline for the SaaS stamp.
 // Why: explicit private boundaries for runtime and private endpoints.
 targetScope = 'resourceGroup'
 
+@description('Azure region where network resources are deployed.')
 param location string
+@description('Project prefix used in network resource names.')
 param projectPrefix string
+@description('Environment label (dev/test/prod) used in names.')
 param environment string
+@description('Address space CIDR for the primary virtual network.')
 param vnetAddressPrefix string
+@description('Subnet CIDR delegated to Azure Container Apps infrastructure.')
 param acaInfraSubnetPrefix string
+@description('Subnet CIDR reserved for Private Endpoint NICs.')
 param privateEndpointSubnetPrefix string
+@description('Common tags applied to all network resources.')
 param tags object = {}
 @description('If true, create and attach a DDoS Network Protection plan to this VNet.')
 param enableDdosProtection bool = false
 @description('If true, attach NSG to private endpoint subnet for explicit network boundary control.')
 param enablePrivateEndpointSubnetNsg bool = true
 
+// Core VNet name that groups all subnets for this environment.
 var vnetName = '${projectPrefix}-${environment}-vnet'
+// Dedicated subnet used by ACA control/data plane components.
 var acaInfraSubnetName = 'snet-aca-infra'
+// Dedicated subnet for Private Endpoints to keep private ingress centralized.
 var privateEndpointSubnetName = 'snet-private-endpoints'
+// Optional DDoS plan name when internet-facing protections are required.
 var ddosPlanName = '${projectPrefix}-${environment}-ddos-plan'
+// NSG attached to PE subnet to make traffic intent explicit and auditable.
 var peNsgName = '${projectPrefix}-${environment}-pe-nsg'
 
 resource ddosPlan 'Microsoft.Network/ddosProtectionPlans@2023-09-01' = if (enableDdosProtection) {
@@ -35,6 +60,7 @@ resource privateEndpointSubnetNsg 'Microsoft.Network/networkSecurityGroups@2023-
       {
         name: 'allow-vnet-inbound'
         properties: {
+          // Lower number means higher priority; this rule should be evaluated early.
           priority: 100
           protocol: '*'
           access: 'Allow'
@@ -48,6 +74,7 @@ resource privateEndpointSubnetNsg 'Microsoft.Network/networkSecurityGroups@2023-
       {
         name: 'allow-azure-loadbalancer-inbound'
         properties: {
+          // Required for Azure platform health probes in many topologies.
           priority: 110
           protocol: '*'
           access: 'Allow'
@@ -61,6 +88,7 @@ resource privateEndpointSubnetNsg 'Microsoft.Network/networkSecurityGroups@2023-
       {
         name: 'deny-internet-inbound'
         properties: {
+          // Keep deny rule lower priority than required allow rules above.
           priority: 400
           protocol: '*'
           access: 'Deny'
@@ -119,6 +147,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 }
 
 output vnetName string = vnet.name
+// Subnet resource IDs are consumed by stamp modules for delegated/private networking.
 output acaInfraSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, acaInfraSubnetName)
 output privateEndpointSubnetResourceId string = resourceId('Microsoft.Network/virtualNetworks/subnets', vnet.name, privateEndpointSubnetName)
 output ddosPlanResourceId string = enableDdosProtection ? ddosPlan.id : ''

@@ -1,27 +1,53 @@
+// -----------------------------------------------------------------------------
+// GLOSSARY + SAAS CONTEXT
+// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+// - Module: Reusable deployment unit with parameters and outputs.
+// - Parameter: Input value used to customize deployment per SaaS environment.
+// - Resource: Azure object created by this file.
+// - Output: Value exported for other modules/tests/pipelines.
+// - Least privilege: Grant identities only permissions they strictly need.
+// - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+// - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+// - SaaS use here: Deploys secure Container Apps runtime stamp with Key Vault and identities.
+// -----------------------------------------------------------------------------
+
 // Secure application stamp.
 // Why: one reusable runtime slice with identity, secrets, networking, and apps.
 targetScope = 'resourceGroup'
 
+@description('Azure region where this application stamp is deployed.')
 param location string
+@description('Project prefix used in naming all stamp resources.')
 param projectPrefix string
+@description('Environment label (dev/test/prod) used in names/tags.')
 param environment string
+@description('Log Analytics workspace resource ID used for ACA and diagnostics logging.')
 param logAnalyticsWorkspaceId string
 @description('If true, send Key Vault diagnostics to Log Analytics workspace.')
 param deployDiagnostics bool = false
+@description('Delegated subnet resource ID used by the ACA managed environment.')
 param infrastructureSubnetResourceId string
+@description('Subnet resource ID where private endpoints are created.')
 param privateEndpointSubnetResourceId string
+@description('Container image used by both sample web and worker apps.')
 param containerImage string
 @description('Set true only when internet exposure is required.')
 param enablePublicWebIngress bool = false
+@description('Source CIDR list allowed to reach public web ingress when enabled.')
 param allowedIngressCidrs array
+@description('Common tags applied to all resources in this stamp.')
 param tags object = {}
 @description('If true, apply CanNotDelete locks to critical resources in this stamp.')
 param applyDeleteLocks bool = false
 
+// ACA environment name shared by apps in this stamp.
 var acaEnvironmentName = '${projectPrefix}-${environment}-acae'
+// Key Vault name must be globally unique; uniqueString adds entropy based on subscription/RG.
 var keyVaultName = toLower(replace('${projectPrefix}-${environment}-${uniqueString(subscription().id, resourceGroup().name)}-kv', '_', '-'))
+// App resource names follow predictable convention for operations and alerting.
 var webAppName = '${projectPrefix}-${environment}-web'
 var workerAppName = '${projectPrefix}-${environment}-worker'
+// Private DNS virtual network link needs the parent VNet ID (not subnet ID).
 var vnetResourceId = split(infrastructureSubnetResourceId, '/subnets/')[0]
 
 resource acaEnvironment 'Microsoft.App/managedEnvironments@2025-01-01' = {
@@ -120,6 +146,7 @@ resource webIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
   tags: tags
 }
 
+// Separate identity for worker service to isolate permissions from web frontend.
 resource workerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${workerAppName}-id'
   location: location
@@ -314,5 +341,6 @@ resource kvPrivateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/priva
 }
 
 output containerAppsEnvironmentName string = acaEnvironment.name
+// Web FQDN is consumed by optional Front Door module as origin host.
 output webContainerAppFqdn string = webApp.properties.configuration.ingress.fqdn
 output keyVaultName string = keyVault.name

@@ -1,3 +1,16 @@
+// -----------------------------------------------------------------------------
+// GLOSSARY + SAAS CONTEXT
+// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
+// - Module: Reusable deployment unit with parameters and outputs.
+// - Parameter: Input value used to customize deployment per SaaS environment.
+// - Resource: Azure object created by this file.
+// - Output: Value exported for other modules/tests/pipelines.
+// - Least privilege: Grant identities only permissions they strictly need.
+// - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
+// - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
+// - SaaS use here: Deploys tenant-facing API service with secure ingress and managed identity.
+// -----------------------------------------------------------------------------
+
 // API service module for SaaS workloads.
 // Why: reusable secure baseline for HTTP API services on Azure Container Apps.
 targetScope = 'resourceGroup'
