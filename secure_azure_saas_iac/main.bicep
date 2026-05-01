@@ -117,6 +117,9 @@ param deployEdgeFrontDoor bool = false
 @description('If true, apply CanNotDelete locks to critical resources in app/data stamps.')
 param applyCriticalResourceDeleteLocks bool = false
 
+@description('If true, enable baseline resource diagnostics to Log Analytics.')
+param deployResourceDiagnostics bool = false
+
 @description('If true, deploy baseline platform activity alerts.')
 param deployPlatformAlerts bool = false
 
@@ -243,6 +246,8 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     sqlAdminLogin: sqlAdminLogin
     sqlAdminPassword: sqlAdminPassword
     applyDeleteLocks: applyCriticalResourceDeleteLocks
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+    deployDiagnostics: deployResourceDiagnostics
     tags: tags
   }
 }
@@ -255,6 +260,7 @@ module acaStamp './stamps/aca-stamp/main.bicep' = {
     environment: environment
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     logAnalyticsSharedKey: monitoring.outputs.logAnalyticsPrimarySharedKey
+    deployDiagnostics: deployResourceDiagnostics
     infrastructureSubnetResourceId: network.outputs.acaInfraSubnetResourceId
     privateEndpointSubnetResourceId: network.outputs.privateEndpointSubnetResourceId
     containerImage: bootstrapContainerImage

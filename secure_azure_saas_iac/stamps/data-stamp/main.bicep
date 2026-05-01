@@ -13,6 +13,10 @@ param environment string
 
 @description('Private endpoint subnet resource ID.')
 param privateEndpointSubnetResourceId string
+@description('Log Analytics workspace resource ID for diagnostics.')
+param logAnalyticsWorkspaceId string = ''
+@description('If true, send data-stamp diagnostics to Log Analytics workspace.')
+param deployDiagnostics bool = false
 
 @description('Storage SKU, for example Standard_LRS or Standard_GRS.')
 param storageSku string = 'Standard_LRS'
@@ -102,6 +106,26 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+resource storageDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployDiagnostics) {
+  scope: storageAccount
+  name: 'storage-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
+
 resource storageLock 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLocks) {
   name: '${storageAccount.name}-delete-lock'
   scope: storageAccount
@@ -125,6 +149,26 @@ resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2023-01-01-preview
     minimumTlsVersion: '1.2'
     disableLocalAuth: true
     zoneRedundant: serviceBusSku == 'Premium'
+  }
+}
+
+resource serviceBusDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployDiagnostics) {
+  scope: serviceBusNamespace
+  name: 'servicebus-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
@@ -159,6 +203,26 @@ resource sqlServer 'Microsoft.Sql/servers@2023-08-01' = if (deploySql) {
     // Security: force modern transport and disable public endpoint.
     minimalTlsVersion: '1.2'
     publicNetworkAccess: 'Disabled'
+  }
+}
+
+resource sqlDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deploySql && deployDiagnostics) {
+  scope: sqlServer
+  name: 'sql-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
@@ -206,6 +270,26 @@ resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
   }
 }
 
+resource redisDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployRedis && deployDiagnostics) {
+  scope: redisCache
+  name: 'redis-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
+
 resource redisLock 'Microsoft.Authorization/locks@2020-05-01' = if (deployRedis && applyDeleteLocks) {
   name: '${redisCache.name}-delete-lock'
   scope: redisCache
@@ -225,6 +309,26 @@ resource eventGridTopic 'Microsoft.EventGrid/topics@2022-06-15' = if (deployEven
   properties: {
     publicNetworkAccess: 'Disabled'
     inputSchema: 'EventGridSchema'
+  }
+}
+
+resource eventGridDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployEventGrid && deployDiagnostics) {
+  scope: eventGridTopic
+  name: 'eventgrid-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 

@@ -8,6 +8,8 @@ param environment string
 param logAnalyticsWorkspaceId string
 @secure()
 param logAnalyticsSharedKey string
+@description('If true, send Key Vault diagnostics to Log Analytics workspace.')
+param deployDiagnostics bool = false
 param infrastructureSubnetResourceId string
 param privateEndpointSubnetResourceId string
 param containerImage string
@@ -71,6 +73,27 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
       ipRules: []
       virtualNetworkRules: []
     }
+  }
+}
+
+// Security/forensics: capture Key Vault audit events in central workspace.
+resource keyVaultDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (deployDiagnostics) {
+  scope: keyVault
+  name: 'keyvault-diagnostics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'AuditEvent'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
