@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Reusable internal service module for tenant onboarding.
-//   2. Used for provisioning and tenant lifecycle workflows.
-//   3. Inputs: image, environment ID, identity, scaling values.
-//   4. Outputs: app resource ID and runtime FQDN.
-//   5. Security role: internal-only ingress and managed identity auth path.
+// FILE: Reusable tenant-onboarding workload module.
+// USED IN SAAS FLOW: Supports tenant provisioning/lifecycle background service.
+// SECURITY-CRITICAL: Internal ingress model reduces unnecessary internet attack surface.
 // -----------------------------------------------------------------------------
 // Tenant onboarding service module.
 // Why: secure internal service for provisioning tenant resources/workflows.

@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Deploys Front Door + WAF edge stack.
-//   2. Used when public SaaS endpoints require protected internet entry.
-//   3. Inputs: origin hostname and naming context.
-//   4. Outputs: endpoint hostname and WAF policy ID.
-//   5. Security role: central WAF filtering and HTTPS edge control.
+// FILE: Azure Front Door + WAF edge protection module.
+// USED IN SAAS FLOW: Optional internet-facing entry layer for public endpoints.
+// SECURITY-CRITICAL: Adds web attack filtering and enforces HTTPS edge behavior.
 // -----------------------------------------------------------------------------
 // Optional secure edge module: Azure Front Door + WAF.
 // Why: adds global edge protection and central web filtering in front of public endpoints.

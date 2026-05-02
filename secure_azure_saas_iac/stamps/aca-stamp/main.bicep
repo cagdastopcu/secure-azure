@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Deploys secure application runtime stamp.
-//   2. Used to host web and worker apps with shared secure dependencies.
-//   3. Inputs: subnets, image, ingress policy, lock/diagnostic toggles.
-//   4. Outputs: runtime and secret-service identifiers.
-//   5. Security role: managed identity + private Key Vault path + strict ingress.
+// FILE: Secure application runtime stamp (ACA + Key Vault + identities).
+// USED IN SAAS FLOW: Hosts core web/worker runtime components for the SaaS platform.
+// SECURITY-CRITICAL: Implements private secret path, managed identities, and controlled ingress.
 // -----------------------------------------------------------------------------
 // Secure application stamp.
 // Why: one reusable runtime slice with identity, secrets, networking, and apps.

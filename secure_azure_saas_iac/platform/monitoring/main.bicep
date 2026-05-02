@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Creates central log and telemetry services.
-//   2. Used by app/data/platform modules for diagnostics.
-//   3. Inputs: retention days and naming context.
-//   4. Outputs: workspace identifiers and telemetry connection values.
-//   5. Security role: enables forensic visibility and incident investigation.
+// FILE: Monitoring baseline module (Log Analytics + App Insights).
+// USED IN SAAS FLOW: Shared telemetry backend for workloads and platform diagnostics.
+// SECURITY-CRITICAL: Ensures incident investigation visibility via centralized logs.
 // -----------------------------------------------------------------------------
 // Monitoring baseline module.
 // Why: central logs/telemetry are required for ops and security investigation.

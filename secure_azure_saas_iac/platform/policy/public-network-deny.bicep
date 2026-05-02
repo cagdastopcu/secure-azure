@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Defines custom deny policies for public network exposure.
-//   2. Used when strict private-only posture is required.
-//   3. Inputs: enable/disable assignment toggle.
-//   4. Outputs: policy assignment names.
-//   5. Security role: enforces private-by-default at policy engine level.
+// FILE: Custom deny policies for public network access on key PaaS services.
+// USED IN SAAS FLOW: Optional hard guardrail layer at subscription scope.
+// SECURITY-CRITICAL: Blocks accidental public exposure even if template/application config drifts.
 // -----------------------------------------------------------------------------
 // Advanced subscription-level policy guardrails.
 // Why: block accidental public exposure for core data/services.

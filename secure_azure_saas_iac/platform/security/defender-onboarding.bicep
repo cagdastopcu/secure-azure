@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Enables selected Defender plans at subscription scope.
-//   2. Used to bootstrap managed cloud threat detection.
-//   3. Inputs: list of Defender plan names.
-//   4. Outputs: plan names enabled by deployment.
-//   5. Security role: strengthens posture management and threat visibility.
+// FILE: Defender for Cloud plan onboarding module.
+// USED IN SAAS FLOW: Enables selected security plans during platform bootstrap.
+// SECURITY-CRITICAL: Expands threat detection and posture insights across subscription assets.
 // -----------------------------------------------------------------------------
 // Defender for Cloud onboarding at subscription scope.
 // Why: baseline posture management and threat protection plans.

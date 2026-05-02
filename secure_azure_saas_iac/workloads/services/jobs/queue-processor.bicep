@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Reusable queue-driven background job module.
-//   2. Used for asynchronous SaaS tasks like billing/sync/notifications.
-//   3. Inputs: queue namespace/name, identity, execution scaling limits.
-//   4. Outputs: job resource ID for management/monitoring.
-//   5. Security role: bounded execution and identity-based queue access.
+// FILE: Reusable queue-driven background job module.
+// USED IN SAAS FLOW: Executes async workloads triggered by Service Bus queue depth.
+// SECURITY-CRITICAL: Bounded execution + identity auth reduce abuse and credential risk.
 // -----------------------------------------------------------------------------
 // Queue processor job module.
 // Why: reusable secure background worker using Container Apps Job + managed identity.

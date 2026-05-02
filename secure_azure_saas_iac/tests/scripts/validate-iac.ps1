@@ -1,18 +1,7 @@
 # -----------------------------------------------------------------------------
-# GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-# - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-# - Module: Reusable building block with inputs (parameters) and outputs.
-# - Parameter: Value you change per environment without rewriting deployment logic.
-# - Resource: Actual Azure service instance created by this file.
-# - Output: Exported value used by other modules, tests, or pipeline steps.
-# - Identity-first: Prefer managed identities over embedded static credentials.
-# - Private-first: Prefer private networking and explicit ingress boundaries.
-# - How this file is used in this SaaS project:
-#   1. Compiles all Bicep templates in CI.
-#   2. Used to fail fast on syntax/type/template errors.
-#   3. Inputs: IaC root path override.
-#   4. Outputs: build logs and script exit status.
-#   5. Security role: blocks broken infrastructure changes before deploy.
+# FILE: CI validation script for Bicep compilation.
+# USED IN SAAS FLOW: Fails pull requests when templates are invalid.
+# SECURITY-CRITICAL: Prevents broken or unsafe infrastructure changes from advancing.
 # -----------------------------------------------------------------------------
 param(
   # Root folder of the IaC project; defaults to two levels above this script.

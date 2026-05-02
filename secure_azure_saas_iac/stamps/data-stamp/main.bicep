@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Deploys shared data and integration services.
-//   2. Used when SaaS needs storage, messaging, and optional SQL/Redis/Event Grid.
-//   3. Inputs: service toggles, SKUs, private subnet IDs.
-//   4. Outputs: service names/IDs for app integration.
-//   5. Security role: private endpoints and disabled public access by default.
+// FILE: Data/integration stamp (Storage, Service Bus, optional SQL/Redis/Event Grid).
+// USED IN SAAS FLOW: Shared state and messaging foundation for services.
+// SECURITY-CRITICAL: Uses private endpoints and disabled public network access by default.
 // -----------------------------------------------------------------------------
 // Data/integration stamp for SaaS platform.
 // Why: provides secure shared state + messaging baseline aligned to blueprint.

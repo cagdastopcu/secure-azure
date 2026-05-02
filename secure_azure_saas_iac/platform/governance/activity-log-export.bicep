@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Exports subscription activity logs to central analytics.
-//   2. Used to maintain audit trail for admin and policy actions.
-//   3. Inputs: destination workspace ID and enable switch.
-//   4. Outputs: diagnostic setting name.
-//   5. Security role: preserves evidence for incident timelines.
+// FILE: Subscription activity log export module.
+// USED IN SAAS FLOW: Sends control-plane events to central workspace for audit timeline.
+// SECURITY-CRITICAL: Preserves forensic evidence for incident response and compliance.
 // -----------------------------------------------------------------------------
 // Subscription activity log export.
 // Why: central audit trail of control-plane operations for incident response/compliance.

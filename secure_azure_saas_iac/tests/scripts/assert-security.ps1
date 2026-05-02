@@ -1,18 +1,7 @@
 # -----------------------------------------------------------------------------
-# GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-# - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-# - Module: Reusable building block with inputs (parameters) and outputs.
-# - Parameter: Value you change per environment without rewriting deployment logic.
-# - Resource: Actual Azure service instance created by this file.
-# - Output: Exported value used by other modules, tests, or pipeline steps.
-# - Identity-first: Prefer managed identities over embedded static credentials.
-# - Private-first: Prefer private networking and explicit ingress boundaries.
-# - How this file is used in this SaaS project:
-#   1. Checks critical security defaults in IaC text.
-#   2. Used to detect baseline drift during pull requests.
-#   3. Inputs: IaC root path override.
-#   4. Outputs: per-control pass/fail assertions.
-#   5. Security role: prevents regressions that weaken private-first posture.
+# FILE: CI script that asserts required security defaults in IaC text.
+# USED IN SAAS FLOW: Detects security baseline regressions during review.
+# SECURITY-CRITICAL: Blocks merges that weaken private-first or TLS controls.
 # -----------------------------------------------------------------------------
 param(
   # Root folder of the IaC project; defaults to two levels above this script.

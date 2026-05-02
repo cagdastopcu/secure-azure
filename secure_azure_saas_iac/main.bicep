@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Orchestrates full SaaS platform deployment in one root template.
-//   2. Used to provision environment slices (dev/test/prod) consistently.
-//   3. Inputs: network ranges, service toggles, security/governance settings.
-//   4. Outputs: critical IDs/names/FQDNs for operations and integrations.
-//   5. Security role: central place for secure defaults and guardrails.
+// FILE: Root Bicep orchestrator for full SaaS platform deployment.
+// USED IN SAAS FLOW: Composes network, monitoring, policy, data, runtime, and optional edge/api modules.
+// SECURITY-CRITICAL: Centralizes secure defaults and feature toggles that control public exposure and governance.
 // -----------------------------------------------------------------------------
 // Root deployment entrypoint.
 // Why: keeps platform + workload deployment as one repeatable command.

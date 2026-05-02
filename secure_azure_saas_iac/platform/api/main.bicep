@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Deploys API Management gateway control plane.
-//   2. Used for API governance/productization in SaaS.
-//   3. Inputs: publisher metadata, SKU/capacity, diagnostics toggle.
-//   4. Outputs: APIM service name/ID and gateway URL.
-//   5. Security role: policy-controlled API boundary with hardened TLS options.
+// FILE: API Management deployment module.
+// USED IN SAAS FLOW: Optional centralized API gateway for product/governance controls.
+// SECURITY-CRITICAL: Hardens protocol settings and supports managed identity-based integrations.
 // -----------------------------------------------------------------------------
 // API Management baseline module.
 // Why: blueprint calls for optional centralized API gateway for governance, productization, and throttling policies.

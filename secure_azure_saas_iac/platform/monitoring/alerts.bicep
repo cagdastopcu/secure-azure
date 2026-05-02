@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Creates baseline alert routing and activity-log alerts.
-//   2. Used by SOC/ops to detect control-plane and policy issues.
-//   3. Inputs: subscription scope and email destination.
-//   4. Outputs: action group ID for future alert chaining.
-//   5. Security role: improves detection speed and alert consistency.
+// FILE: Baseline activity-log alert routing module.
+// USED IN SAAS FLOW: Notifies operations/security when admin or policy events occur.
+// SECURITY-CRITICAL: Shortens detection time for governance and control-plane issues.
 // -----------------------------------------------------------------------------
 // Baseline alert routing module.
 // Why: sends important platform events to an operator mailbox.

@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Creates VNet and subnets for runtime and private endpoints.
-//   2. Used before app/data modules so subnet IDs are available.
-//   3. Inputs: CIDRs, DDOS toggle, PE subnet NSG toggle.
-//   4. Outputs: subnet resource IDs consumed by other modules.
-//   5. Security role: network isolation and deny-by-default boundaries.
+// FILE: Network baseline module (VNet, subnets, optional DDoS/NSG).
+// USED IN SAAS FLOW: Provides subnet IDs required by app/data stamps.
+// SECURITY-CRITICAL: Defines private boundaries and inbound filtering posture.
 // -----------------------------------------------------------------------------
 // Network baseline for the SaaS stamp.
 // Why: explicit private boundaries for runtime and private endpoints.

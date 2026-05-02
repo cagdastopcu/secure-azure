@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Assigns built-in policies for region and tagging governance.
-//   2. Used as baseline governance step in each deployment.
-//   3. Inputs: allowed locations and required tag values.
-//   4. Outputs: assignment names for audit and reporting.
-//   5. Security role: prevents unmanaged and noncompliant resource creation.
+// FILE: Governance policy assignment baseline.
+// USED IN SAAS FLOW: Enforces required regions and tags across deployed resources.
+// SECURITY-CRITICAL: Prevents unmanaged deployment drift and improves traceability.
 // -----------------------------------------------------------------------------
 // Governance baseline at resource-group scope.
 // Why: enforce location and tagging standards automatically.

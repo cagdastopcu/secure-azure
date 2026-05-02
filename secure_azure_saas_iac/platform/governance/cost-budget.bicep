@@ -1,18 +1,7 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-// - Module: Reusable building block with inputs (parameters) and outputs.
-// - Parameter: Value you change per environment without rewriting deployment logic.
-// - Resource: Actual Azure service instance created by this file.
-// - Output: Exported value used by other modules, tests, or pipeline steps.
-// - Identity-first: Prefer managed identities over embedded static credentials.
-// - Private-first: Prefer private networking and explicit ingress boundaries.
-// - How this file is used in this SaaS project:
-//   1. Creates monthly budget with threshold alerts.
-//   2. Used to keep SaaS spend predictable and detectable.
-//   3. Inputs: monthly amount, start date, alert email.
-//   4. Outputs: budget resource ID.
-//   5. Security role: budget anomalies can signal misuse/compromise.
+// FILE: Subscription budget guardrail module.
+// USED IN SAAS FLOW: Raises forecast/actual threshold alerts for platform spend.
+// SECURITY-CRITICAL: Cost spikes can indicate misuse/compromise and should be investigated quickly.
 // -----------------------------------------------------------------------------
 // Cost governance baseline budget at subscription scope.
 // Why: early cost overrun warning for SaaS platform operations.

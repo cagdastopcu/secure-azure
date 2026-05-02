@@ -1,18 +1,7 @@
 # -----------------------------------------------------------------------------
-# GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
-# - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
-# - Module: Reusable building block with inputs (parameters) and outputs.
-# - Parameter: Value you change per environment without rewriting deployment logic.
-# - Resource: Actual Azure service instance created by this file.
-# - Output: Exported value used by other modules, tests, or pipeline steps.
-# - Identity-first: Prefer managed identities over embedded static credentials.
-# - Private-first: Prefer private networking and explicit ingress boundaries.
-# - How this file is used in this SaaS project:
-#   1. Runs SaaS IaC quality gates before merge/deploy.
-#   2. Used during PR and manual runs as a release safety checkpoint.
-#   3. Inputs: OIDC Azure identity secrets, location, resource-group.
-#   4. Outputs: CI pass/fail status and what-if preview log.
-#   5. Security role: secretless login + least privilege + strict shell behavior.
+# FILE: GitHub Actions workflow for IaC validation and what-if preview.
+# USED IN SAAS FLOW: Runs on PR/manual trigger before any infrastructure change is merged.
+# SECURITY-CRITICAL: Uses OIDC login, least-privilege token permissions, and fail-fast shell settings.
 # -----------------------------------------------------------------------------
 # Infrastructure CI workflow for Azure Bicep code.
 name: iac-deploy
