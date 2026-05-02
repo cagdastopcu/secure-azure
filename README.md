@@ -1,62 +1,66 @@
-# Secure Azure SaaS IaC
+# Secure Azure SaaS (IaC Repository)
 
-Production-oriented Infrastructure as Code scaffold for building a secure, multi-tenant SaaS platform on Azure using Bicep (ARM-native), Azure Container Apps, and policy-driven governance.
+This repository contains a security-first Azure SaaS Infrastructure as Code baseline built with Bicep.
+The goal is to provision repeatable platform infrastructure with strong default controls instead of adding security later.
 
-## What This Repository Provides
-- Secure Azure SaaS blueprint documentation
-- Modular Bicep IaC scaffold under `secure_azure_saas_iac/`
-- Platform baseline modules for:
-  - Networking (VNet + delegated ACA subnet + private endpoint subnet)
-  - Monitoring (Log Analytics + Application Insights)
-  - Policy baseline (allowed locations + required tags)
-- Application stamp module for:
-  - Azure Container Apps environment
-  - Public web app + internal worker app
-  - User-assigned managed identities
-  - Key Vault with purge protection + private endpoint
-- GitHub Actions IaC validation/what-if pipeline template
+## Current Code State
 
-## Repository Structure
+Implemented baseline under `secure_azure_saas_iac/`:
+- Platform networking, monitoring, governance policy, and optional API gateway
+- Azure Container Apps application stamp with managed identities and private Key Vault
+- Data stamp with Storage, Service Bus, optional SQL/Redis/Event Grid, private endpoints, and private DNS
+- Optional Azure Firewall egress-control pattern with forced default route from ACA subnet
+- SQL backup resilience controls:
+  - short-term retention (PITR)
+  - long-term retention (weekly/monthly/yearly)
+  - backup redundancy mode (`Local|Zone|Geo|GeoZone`)
+- Security and validation scripts for CI
+- SOC playbooks and DR restore/failover runbook documentation
+
+## Repository Layout
+
 ```text
 secure_azure_saas_iac/
   main.bicep
-  docs/DEPLOYMENT.md
-  pipelines/github-actions-iac.yml
+  README.md
+  docs/
   platform/
-    monitoring/main.bicep
-    network/main.bicep
-    policy/security-baseline.bicep
   stamps/
-    aca-stamp/main.bicep
+  tests/
   workloads/
-    services/
 ```
 
+Key entrypoints:
+- `secure_azure_saas_iac/main.bicep`: root orchestrator
+- `secure_azure_saas_iac/README.md`: deep architecture and concept guide
+- `secure_azure_saas_iac/tests/scripts/validate-iac.ps1`: compile validation
+- `secure_azure_saas_iac/tests/scripts/assert-security.ps1`: security-default assertions
+
 ## Quick Start
-1. Create a resource group:
+
 ```bash
 az group create --name rg-saas-dev-platform --location westeurope
-```
-2. Deploy:
-```bash
+
 az deployment group create \
   --resource-group rg-saas-dev-platform \
   --template-file secure_azure_saas_iac/main.bicep \
   --parameters location=westeurope environment=dev projectPrefix=saas
 ```
 
-## Security Notes
-- Public web ingress is disabled by default (`enablePublicWebIngress=false`).
-- If enabling public ingress, restrict `allowedIngressCidrs` to trusted IP ranges only.
-- Keep CI/CD secretless with OIDC federation.
-- Extend policy baseline with your organization initiatives and compliance controls.
-- Use `.env.example` as a local template; never commit real `.env` files.
+## Documentation Index
 
-## Recommended Next Steps
-- Add private DNS zones and VNet links for private endpoint resolution.
-- Add data layer modules (PostgreSQL/Azure SQL, Redis, Service Bus).
-- Add environment parameter files (`*.bicepparam`) for dev/test/prod.
-- Add Defender for Cloud onboarding module and diagnostic settings policies.
+- Architecture and terms:
+  - `secure_azure_saas_iac/README.md`
+- Deployment details:
+  - `secure_azure_saas_iac/docs/DEPLOYMENT.md`
+- Security audits:
+  - `secure_azure_saas_iac/docs/SECURITY_AUDIT.md`
+  - `secure_azure_saas_iac/docs/SECURITY_AUDIT_DEEP.md`
+- DR operational runbook:
+  - `secure_azure_saas_iac/docs/DR_RESTORE_FAILOVER_RUNBOOK.md`
+- SOC operational playbooks:
+  - `secure_azure_saas_iac/docs/soc_playbooks/README.md`
 
 ## License
-MIT (or your preferred license).
+
+MIT

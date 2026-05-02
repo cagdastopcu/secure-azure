@@ -2,6 +2,23 @@
 
 This folder contains operational playbooks for the Azure SaaS SOC program.
 
+## How To Use This Folder
+
+1. Start with `00-soc-operating-standard.md` to align triage and evidence rules.
+2. Use `SOC_BREACH_PLAYBOOK.md` as the main incident lifecycle flow.
+3. Open the specific scenario playbook that matches the active incident pattern.
+4. Use `11-kql-starter-queries.md` for first-pass investigation queries.
+5. Close with `10-post-incident-hardening.md` actions to convert lessons into controls.
+
+## Key Terms (Plain Language)
+
+- `MTTA`: Mean Time To Acknowledge, how fast SOC recognizes an incident.
+- `MTTR`: Mean Time To Respond/Recover, how fast SOC contains and restores.
+- `Chain of custody`: Documented proof that evidence was handled correctly.
+- `Containment`: Actions that stop attacker movement or ongoing damage.
+- `Eradication`: Actions that remove attacker access/persistence entirely.
+- `Recovery`: Actions that return business services to healthy operation.
+
 ## Standards
 - `00-soc-operating-standard.md` - Shared triage, evidence, approval, communication, and closure rules
 
