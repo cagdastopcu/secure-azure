@@ -1,16 +1,19 @@
 # -----------------------------------------------------------------------------
-# GLOSSARY + SAAS CONTEXT
-# - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
-# - Module: Reusable deployment unit with parameters and outputs.
-# - Parameter: Input value used to customize deployment per SaaS environment.
-# - Resource: Azure object created by this file.
-# - Output: Value exported for other modules/tests/pipelines.
-# - Least privilege: Grant identities only permissions they strictly need.
-# - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
-# - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
-# - SaaS use here: Compiles all Bicep files so SaaS IaC errors are detected before deployment.
+# GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
+# - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
+# - Module: Reusable building block with inputs (parameters) and outputs.
+# - Parameter: Value you change per environment without rewriting deployment logic.
+# - Resource: Actual Azure service instance created by this file.
+# - Output: Exported value used by other modules, tests, or pipeline steps.
+# - Identity-first: Prefer managed identities over embedded static credentials.
+# - Private-first: Prefer private networking and explicit ingress boundaries.
+# - How this file is used in this SaaS project:
+#   1. Compiles all Bicep templates in CI.
+#   2. Used to fail fast on syntax/type/template errors.
+#   3. Inputs: IaC root path override.
+#   4. Outputs: build logs and script exit status.
+#   5. Security role: blocks broken infrastructure changes before deploy.
 # -----------------------------------------------------------------------------
-
 param(
   # Root folder of the IaC project; defaults to two levels above this script.
   [string]$IaCRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

@@ -1,14 +1,18 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT
-// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
-// - Module: Reusable deployment unit with parameters and outputs.
-// - Parameter: Input that lets one codebase deploy different SaaS environments.
-// - Resource: Azure object created by this file (for example VNet, Key Vault, Container App).
-// - Output: Value exported for other modules and CI/CD steps.
-// - Least privilege: Grant only minimum permissions required to run.
-// - Private endpoint: Private IP route to PaaS service to reduce public exposure.
-// - Diagnostics: Logs/metrics sent to central monitoring for operations and security.
-// - SaaS use here: Orchestrates full SaaS platform deployment across platform, data, app, and governance modules.
+// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
+// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
+// - Module: Reusable building block with inputs (parameters) and outputs.
+// - Parameter: Value you change per environment without rewriting deployment logic.
+// - Resource: Actual Azure service instance created by this file.
+// - Output: Exported value used by other modules, tests, or pipeline steps.
+// - Identity-first: Prefer managed identities over embedded static credentials.
+// - Private-first: Prefer private networking and explicit ingress boundaries.
+// - How this file is used in this SaaS project:
+//   1. Orchestrates full SaaS platform deployment in one root template.
+//   2. Used to provision environment slices (dev/test/prod) consistently.
+//   3. Inputs: network ranges, service toggles, security/governance settings.
+//   4. Outputs: critical IDs/names/FQDNs for operations and integrations.
+//   5. Security role: central place for secure defaults and guardrails.
 // -----------------------------------------------------------------------------
 // Root deployment entrypoint.
 // Why: keeps platform + workload deployment as one repeatable command.

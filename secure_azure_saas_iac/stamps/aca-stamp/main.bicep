@@ -1,16 +1,19 @@
 // -----------------------------------------------------------------------------
-// GLOSSARY + SAAS CONTEXT
-// - IaC: Infrastructure as Code; cloud resources are defined as versioned text files.
-// - Module: Reusable deployment unit with parameters and outputs.
-// - Parameter: Input value used to customize deployment per SaaS environment.
-// - Resource: Azure object created by this file.
-// - Output: Value exported for other modules/tests/pipelines.
-// - Least privilege: Grant identities only permissions they strictly need.
-// - Private endpoint: Private IP path to PaaS service to reduce public attack surface.
-// - Diagnostics: Logs/metrics sent to central monitoring for operations and incident response.
-// - SaaS use here: Deploys secure Container Apps runtime stamp with Key Vault and identities.
+// GLOSSARY + SAAS CONTEXT (DEEP PLAIN-LANGUAGE)
+// - IaC: This file defines cloud behavior as auditable text instead of manual clicks.
+// - Module: Reusable building block with inputs (parameters) and outputs.
+// - Parameter: Value you change per environment without rewriting deployment logic.
+// - Resource: Actual Azure service instance created by this file.
+// - Output: Exported value used by other modules, tests, or pipeline steps.
+// - Identity-first: Prefer managed identities over embedded static credentials.
+// - Private-first: Prefer private networking and explicit ingress boundaries.
+// - How this file is used in this SaaS project:
+//   1. Deploys secure application runtime stamp.
+//   2. Used to host web and worker apps with shared secure dependencies.
+//   3. Inputs: subnets, image, ingress policy, lock/diagnostic toggles.
+//   4. Outputs: runtime and secret-service identifiers.
+//   5. Security role: managed identity + private Key Vault path + strict ingress.
 // -----------------------------------------------------------------------------
-
 // Secure application stamp.
 // Why: one reusable runtime slice with identity, secrets, networking, and apps.
 targetScope = 'resourceGroup'
