@@ -34,6 +34,27 @@ param privateEndpointSubnetPrefix string = '10.40.2.0/24'
 param enableDdosProtection bool = false
 @description('If true, attach an NSG to private endpoint subnet.')
 param enablePrivateEndpointSubnetNsg bool = true
+@description('If true, deploy Azure Firewall and force ACA subnet outbound traffic through firewall for inspected egress.')
+// Security toggle: keeps cost low in dev, but allows strict outbound-control mode when needed.
+param enableAzureFirewallForEgress bool = false
+@description('CIDR for dedicated Azure Firewall subnet (must be subnet named AzureFirewallSubnet, typically /26 or larger).')
+// This range must not overlap other subnets in this VNet.
+param azureFirewallSubnetPrefix string = '10.40.3.0/26'
+@description('Azure Firewall SKU tier. Premium adds deeper inspection controls; Standard is lower-cost baseline.')
+@allowed([
+  'Standard'
+  'Premium'
+])
+// Tier influences both feature set and monthly cost profile.
+param azureFirewallSkuTier string = 'Standard'
+@description('Threat intel mode applied to Azure Firewall policy and instance.')
+@allowed([
+  'Alert'
+  'Deny'
+  'Off'
+])
+// Secure default: block known-malicious destinations instead of only logging.
+param azureFirewallThreatIntelMode string = 'Deny'
 
 @description('Log retention days in Log Analytics.')
 param logRetentionInDays int = 30
@@ -52,7 +73,8 @@ param enablePublicWebIngress bool = false
 param deployDataStamp bool = true
 
 @description('Storage SKU for data stamp.')
-param dataStorageSku string = 'Standard_LRS'
+// Geo-redundant storage is a resilience-first default for SaaS business continuity.
+param dataStorageSku string = 'Standard_GRS'
 
 @description('Service Bus SKU for data stamp.')
 @allowed([
@@ -98,6 +120,15 @@ param sqlServerNameSuffix string = 'sql'
 
 @description('SQL database name.')
 param sqlDatabaseName string = 'appdb'
+@description('Backup storage redundancy for Azure SQL automated backups. Geo is a strong default for SaaS DR posture.')
+@allowed([
+  'Local'
+  'Zone'
+  'Geo'
+  'GeoZone'
+])
+// Geo keeps backup copies in paired region, enabling geo-restore during region failure scenarios.
+param sqlBackupStorageRedundancy string = 'Geo'
 
 @description('SQL admin login name (used only when deploySql=true).')
 param sqlAdminLogin string = 'sqladminuser'
@@ -105,6 +136,34 @@ param sqlAdminLogin string = 'sqladminuser'
 @secure()
 @description('SQL admin password (required when deploySql=true).')
 param sqlAdminPassword string = ''
+@description('SQL short-term backup retention days for point-in-time recovery (7-35).')
+@minValue(7)
+@maxValue(35)
+// Use upper bound to maximize PITR options after accidental writes/deletes.
+param sqlShortTermRetentionDays int = 35
+@description('SQL differential backup interval in hours for short-term retention policy.')
+@allowed([
+  12
+  24
+])
+param sqlDiffBackupIntervalInHours int = 12
+@description('If true, enable SQL long-term retention (LTR) backup policy.')
+// Keeps older recovery points for compliance and deep-history incident recovery.
+param enableSqlLongTermRetention bool = true
+@description('SQL weekly LTR retention duration in ISO 8601 (for example P12W).')
+// Retain weekly backup snapshots for 12 weeks.
+param sqlLongTermWeeklyRetention string = 'P12W'
+@description('SQL monthly LTR retention duration in ISO 8601 (for example P12M).')
+// Retain monthly backup snapshots for 12 months.
+param sqlLongTermMonthlyRetention string = 'P12M'
+@description('SQL yearly LTR retention duration in ISO 8601 (for example P5Y).')
+// Retain yearly backup snapshots for 5 years.
+param sqlLongTermYearlyRetention string = 'P5Y'
+@description('ISO week number (1-52) used for yearly LTR snapshot.')
+@minValue(1)
+@maxValue(52)
+// Week 1 means yearly archive snapshot is taken from first ISO week.
+param sqlLongTermWeekOfYear int = 1
 
 @description('If true, enable Defender for Cloud plans at subscription scope.')
 param deployDefenderOnboarding bool = true
@@ -198,6 +257,14 @@ module network './platform/network/main.bicep' = {
     privateEndpointSubnetPrefix: privateEndpointSubnetPrefix
     enableDdosProtection: enableDdosProtection
     enablePrivateEndpointSubnetNsg: enablePrivateEndpointSubnetNsg
+    // Toggle for optional inspected egress pattern.
+    enableAzureFirewallForEgress: enableAzureFirewallForEgress
+    // Dedicated firewall subnet CIDR passed from root for environment-specific addressing.
+    azureFirewallSubnetPrefix: azureFirewallSubnetPrefix
+    // Firewall SKU tier controls cost/security feature depth.
+    azureFirewallSkuTier: azureFirewallSkuTier
+    // Threat intel enforcement mode controls block-vs-alert behavior for known bad indicators.
+    azureFirewallThreatIntelMode: azureFirewallThreatIntelMode
     tags: tags
   }
 }
@@ -288,8 +355,24 @@ module dataStamp './stamps/data-stamp/main.bicep' = if (deployDataStamp) {
     deploySql: deploySql
     sqlServerNameSuffix: sqlServerNameSuffix
     sqlDatabaseName: sqlDatabaseName
+    // Sets SQL automated backup copy scope for disaster recovery objectives.
+    sqlBackupStorageRedundancy: sqlBackupStorageRedundancy
     sqlAdminLogin: sqlAdminLogin
     sqlAdminPassword: sqlAdminPassword
+    // PITR retention window for operational recovery from recent incidents.
+    sqlShortTermRetentionDays: sqlShortTermRetentionDays
+    // Differential backup cadence to improve restore granularity.
+    sqlDiffBackupIntervalInHours: sqlDiffBackupIntervalInHours
+    // Enable/disable long-term retention for compliance and deep-history recovery.
+    enableSqlLongTermRetention: enableSqlLongTermRetention
+    // Weekly LTR window.
+    sqlLongTermWeeklyRetention: sqlLongTermWeeklyRetention
+    // Monthly LTR window.
+    sqlLongTermMonthlyRetention: sqlLongTermMonthlyRetention
+    // Yearly LTR window.
+    sqlLongTermYearlyRetention: sqlLongTermYearlyRetention
+    // Calendar week used for yearly retained snapshot.
+    sqlLongTermWeekOfYear: sqlLongTermWeekOfYear
     applyDeleteLocks: applyCriticalResourceDeleteLocks
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     deployDiagnostics: deployResourceDiagnostics
@@ -349,8 +432,20 @@ module edgeFrontDoor './platform/edge/frontdoor.bicep' = if (deployEdgeFrontDoor
 output logAnalyticsWorkspaceName string = monitoring.outputs.logAnalyticsWorkspaceName
 output containerAppsEnvironmentName string = acaStamp.outputs.containerAppsEnvironmentName
 output webContainerAppFqdn string = acaStamp.outputs.webContainerAppFqdn
+// Expose DDoS plan ID for governance checks and incident dashboards.
 output ddosPlanResourceId string = network.outputs.ddosPlanResourceId
+// Expose NSG ID to verify PE subnet protections in policy/compliance tooling.
 output privateEndpointSubnetNsgResourceId string = network.outputs.privateEndpointSubnetNsgResourceId
+// Firewall resource ID helps operations target firewall for policy/rule updates.
+output azureFirewallResourceId string = network.outputs.azureFirewallResourceId
+// Firewall private IP is useful when validating subnet route-table next hop.
+output azureFirewallPrivateIp string = network.outputs.azureFirewallPrivateIp
+// Firewall policy ID is used by security automation and compliance checks.
+output azureFirewallPolicyResourceId string = network.outputs.azureFirewallPolicyResourceId
+// Public IP resource ID enables audit of egress identity and IP allowlists.
+output azureFirewallPublicIpResourceId string = network.outputs.azureFirewallPublicIpResourceId
+// Route-table ID verifies forced-tunneling/egress-control is active.
+output acaEgressRouteTableResourceId string = network.outputs.acaEgressRouteTableResourceId
 
 output storageAccountName string = deployDataStamp ? dataStamp!.outputs.storageAccountName : ''
 output serviceBusNamespaceName string = deployDataStamp ? dataStamp!.outputs.serviceBusNamespaceName : ''
@@ -359,6 +454,10 @@ output eventGridTopicResourceId string = deployDataStamp ? dataStamp!.outputs.ev
 output redisCacheResourceId string = deployDataStamp ? dataStamp!.outputs.redisCacheResourceId : ''
 output sqlServerResourceId string = deployDataStamp ? dataStamp!.outputs.sqlServerResourceId : ''
 output sqlDatabaseResourceId string = deployDataStamp ? dataStamp!.outputs.sqlDatabaseResourceId : ''
+// Exposes SQL short-term backup policy resource so audits can verify PITR posture.
+output sqlShortTermRetentionPolicyResourceId string = deployDataStamp ? dataStamp!.outputs.sqlShortTermRetentionPolicyResourceId : ''
+// Exposes SQL long-term backup policy resource so compliance tooling can verify retention posture.
+output sqlLongTermRetentionPolicyResourceId string = deployDataStamp ? dataStamp!.outputs.sqlLongTermRetentionPolicyResourceId : ''
 output defenderPlansEnabled array = deployDefenderOnboarding ? defenderOnboarding!.outputs.enabledPlans : []
 output platformActionGroupId string = deployPlatformAlerts ? platformAlerts!.outputs.actionGroupId : ''
 output advancedPublicNetworkDenyAssignments array = deployAdvancedPublicNetworkDenyPolicies ? advancedPublicNetworkDenyPolicies!.outputs.assignmentNames : []

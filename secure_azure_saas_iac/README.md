@@ -32,6 +32,7 @@ This IaC baseline is designed to avoid insecure “temporary” shortcuts by mak
   - VNet
   - ACA infrastructure subnet (delegated)
   - Private endpoint subnet
+  - Optional Azure Firewall + Firewall Policy + forced egress route table
 - `platform/monitoring/main.bicep`
   - Log Analytics workspace
   - Workspace-based Application Insights
@@ -58,7 +59,14 @@ This IaC baseline is designed to avoid insecure “temporary” shortcuts by mak
   - Key Vault private endpoint
   - Private DNS zone + VNet link + DNS zone group
 
-## 3.3 Root Orchestrator
+## 3.3 Data Stamp
+- `stamps/data-stamp/main.bicep`
+  - Storage + Service Bus + optional SQL/Redis/Event Grid
+  - Private endpoints and private DNS zone links for each enabled data service
+  - SQL short-term and long-term backup retention policies
+  - SQL backup storage redundancy control (`Local|Zone|Geo|GeoZone`)
+
+## 3.4 Root Orchestrator
 - `main.bicep`
   - Wires modules and passes dependencies via outputs
   - Exposes safe operational outputs
@@ -72,6 +80,9 @@ Implemented now:
 - Managed identity auth for workloads
 - Least-privilege role assignment to Key Vault
 - Region and tag governance policies
+- Optional Azure Firewall inspected egress pattern
+- SQL backup retention hardening (short-term + long-term)
+- SQL backup storage redundancy default set to `Geo`
 - CI hardening controls:
   - OIDC login
   - minimal token permissions
@@ -217,7 +228,12 @@ When adding SQL/Storage/Redis/Service Bus modules:
 
 ## 14. Related Docs
 
-- docs/DEPLOYMENT.md`n- docs/LINE_BY_LINE_EXPLANATION.md`n- docs/CODE_DEEP_DIVE.md`n- docs/SECURITY_AUDIT.md`n- docs/SECURITY_AUDIT_DEEP.md`n
+- `docs/DEPLOYMENT.md`
+- `docs/LINE_BY_LINE_EXPLANATION.md`
+- `docs/CODE_DEEP_DIVE.md`
+- `docs/SECURITY_AUDIT.md`
+- `docs/SECURITY_AUDIT_DEEP.md`
+- `docs/DR_RESTORE_FAILOVER_RUNBOOK.md`
 ## 15. Disclaimer
 
 This is a strong baseline, not a complete enterprise landing zone.

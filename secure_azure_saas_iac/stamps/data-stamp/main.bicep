@@ -69,7 +69,17 @@ param deploySql bool = false
 param sqlServerNameSuffix string = 'sql'
 
 @description('SQL database name.')
+// This is the app's initial relational database inside the logical SQL server.
 param sqlDatabaseName string = 'appdb'
+@description('Backup storage redundancy for Azure SQL automated backups. Geo is recommended for cross-region recovery.')
+@allowed([
+  'Local'
+  'Zone'
+  'Geo'
+  'GeoZone'
+])
+// Geo means backup copies are replicated to paired region for regional disaster recovery.
+param sqlBackupStorageRedundancy string = 'Geo'
 
 @description('SQL admin login name (required when deploySql=true).')
 param sqlAdminLogin string = 'sqladminuser'
@@ -77,6 +87,35 @@ param sqlAdminLogin string = 'sqladminuser'
 @secure()
 @description('SQL admin password (required when deploySql=true).')
 param sqlAdminPassword string = ''
+@description('Point-in-time restore retention in days for SQL short-term backups (Azure SQL supports 7-35 days).')
+@minValue(7)
+@maxValue(35)
+// 35 days gives maximum PITR rollback window for operational incidents.
+param sqlShortTermRetentionDays int = 35
+@description('Differential backup interval in hours for SQL short-term retention policy (commonly 12 or 24).')
+@allowed([
+  12
+  24
+])
+// 12 hours improves restore granularity compared to 24-hour differential cadence.
+param sqlDiffBackupIntervalInHours int = 12
+@description('If true, enable SQL long-term backup retention (LTR) for disaster recovery and compliance recovery windows.')
+// Keep this on unless your compliance policy explicitly forbids extended retention.
+param enableSqlLongTermRetention bool = true
+@description('Weekly long-term retention in ISO 8601 duration format (for example P12W = retain weekly backups for 12 weeks).')
+// ISO-8601 period string used by Azure SQL retention APIs.
+param sqlLongTermWeeklyRetention string = 'P12W'
+@description('Monthly long-term retention in ISO 8601 duration format (for example P12M = retain monthly backups for 12 months).')
+// Monthly archives help restore older tenant states after late-detected issues.
+param sqlLongTermMonthlyRetention string = 'P12M'
+@description('Yearly long-term retention in ISO 8601 duration format (for example P5Y = retain yearly backups for 5 years).')
+// Yearly retention supports legal/contractual data recovery requirements.
+param sqlLongTermYearlyRetention string = 'P5Y'
+@description('ISO week number used for yearly long-term backup snapshot (1-52).')
+@minValue(1)
+@maxValue(52)
+// Controls when in the year Azure captures the yearly retained backup.
+param sqlLongTermWeekOfYear int = 1
 
 @description('Tags to apply to all resources.')
 param tags object = {}
@@ -251,6 +290,7 @@ resource sqlServerLock 'Microsoft.Authorization/locks@2020-05-01' = if (deploySq
 }
 
 resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = if (deploySql) {
+  // SQL database is a child resource under the logical SQL server.
   parent: sqlServer
   name: sqlDatabaseName
   location: location
@@ -260,7 +300,38 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01' = if (deploySq
     capacity: 5
   }
   properties: {
+    // Resilience hardening: API field that sets automated backup copy scope for this database.
+    requestedBackupStorageRedundancy: sqlBackupStorageRedundancy
+    // Collation defines string comparison/sorting rules for SQL text operations.
     collation: 'SQL_Latin1_General_CP1_CI_AS'
+  }
+}
+
+resource sqlShortTermRetentionPolicy 'Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies@2023-08-01' = if (deploySql) {
+  parent: sqlDatabase
+  // Child policy resource name is always 'default' for SQL backup retention settings.
+  name: 'default'
+  properties: {
+    // Security/resilience: maximum supported PITR window improves recoverability after corruption/ransomware incidents.
+    retentionDays: sqlShortTermRetentionDays
+    // Controls differential backup cadence, improving restore point granularity.
+    diffBackupIntervalInHours: sqlDiffBackupIntervalInHours
+  }
+}
+
+resource sqlLongTermRetentionPolicy 'Microsoft.Sql/servers/databases/backupLongTermRetentionPolicies@2023-08-01' = if (deploySql && enableSqlLongTermRetention) {
+  parent: sqlDatabase
+  // Child policy resource name is always 'default' for SQL LTR settings.
+  name: 'default'
+  properties: {
+    // Security/resilience: preserves weekly backups for longer restoration horizon.
+    weeklyRetention: sqlLongTermWeeklyRetention
+    // Security/resilience: preserves monthly backups for audit/regulatory restore needs.
+    monthlyRetention: sqlLongTermMonthlyRetention
+    // Security/resilience: preserves yearly backups for long-term legal/compliance retention.
+    yearlyRetention: sqlLongTermYearlyRetention
+    // Selects which week of year the yearly LTR snapshot is taken.
+    weekOfYear: sqlLongTermWeekOfYear
   }
 }
 
@@ -637,3 +708,7 @@ output eventGridTopicResourceId string = deployEventGrid ? eventGridTopic.id : '
 output redisCacheResourceId string = deployRedis ? redisCache.id : ''
 output sqlServerResourceId string = deploySql ? sqlServer.id : ''
 output sqlDatabaseResourceId string = deploySql ? sqlDatabase.id : ''
+// Useful for policy or inventory checks to confirm PITR settings exist.
+output sqlShortTermRetentionPolicyResourceId string = deploySql ? sqlShortTermRetentionPolicy.id : ''
+// Useful for compliance evidence that long-term SQL backup retention is configured.
+output sqlLongTermRetentionPolicyResourceId string = deploySql && enableSqlLongTermRetention ? sqlLongTermRetentionPolicy.id : ''

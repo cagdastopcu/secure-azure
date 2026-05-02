@@ -32,6 +32,8 @@ function Assert-Contains {
 
 # Key files checked by this policy test.
 $stamp = Join-Path $IaCRoot 'stamps\aca-stamp\main.bicep'
+$dataStamp = Join-Path $IaCRoot 'stamps\data-stamp\main.bicep'
+$network = Join-Path $IaCRoot 'platform\network\main.bicep'
 $rootMain = Join-Path $IaCRoot 'main.bicep'
 
 # Public ingress defaults to private-first model.
@@ -44,6 +46,15 @@ Assert-Contains -Path $stamp -Pattern "allowInsecure:\s*false" -Message 'Contain
 Assert-Contains -Path $stamp -Pattern "external:\s*false" -Message 'At least one app (worker) is internal-only.'
 # Private DNS zone is required for Key Vault private endpoint resolution.
 Assert-Contains -Path $stamp -Pattern "resource\s+kvPrivateDnsZone\s+'Microsoft.Network/privateDnsZones@" -Message 'Private DNS zone for Key Vault private endpoint exists.'
+# Firewall checks ensure the platform can enforce inspected outbound paths when required.
+Assert-Contains -Path $network -Pattern "param\s+enableAzureFirewallForEgress\s+bool\s*=\s*false" -Message 'Azure Firewall egress control is optional and off by default.'
+# Deny is tested as default so known-malicious destinations are blocked by default posture.
+Assert-Contains -Path $network -Pattern "param\s+azureFirewallThreatIntelMode\s+string\s*=\s*'Deny'" -Message 'Azure Firewall threat intel mode defaults to Deny.'
+# SQL retention policy resources are required for operational and compliance restore objectives.
+Assert-Contains -Path $dataStamp -Pattern "backupShortTermRetentionPolicies@" -Message 'SQL short-term backup retention policy resource exists.'
+Assert-Contains -Path $dataStamp -Pattern "backupLongTermRetentionPolicies@" -Message 'SQL long-term backup retention policy resource exists.'
+# Backup redundancy parameter must exist to support cross-zone/cross-region restore strategies.
+Assert-Contains -Path $dataStamp -Pattern "param\s+sqlBackupStorageRedundancy\s+string\s*=\s*'Geo'" -Message 'SQL backup storage redundancy defaults to Geo.'
 
 Write-Host '[assert-security] Success: security baseline assertions passed.'
 

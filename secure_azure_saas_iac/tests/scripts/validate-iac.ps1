@@ -19,11 +19,25 @@ function Require-Command {
   }
 }
 
-# Azure CLI is required because this script uses `az bicep build`.
-Require-Command -Name 'az'
+# Resolve Azure CLI command path robustly for shells where PATH doesn't include az.
+$azCommand = Get-Command az -ErrorAction SilentlyContinue
+if (-not $azCommand) {
+  # Fallback path for standard Windows Azure CLI installer location.
+  $azFallbackPath = 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd'
+  if (Test-Path $azFallbackPath) {
+    # Normalize into object shape with Source property so later invocation stays identical.
+    $azCommand = @{
+      Source = $azFallbackPath
+    }
+  }
+}
+if (-not $azCommand) {
+  # Hard fail ensures CI does not silently skip template compilation checks.
+  throw 'Required command not found: az (and fallback path not found).'
+}
 
 Write-Host "[validate-iac] Installing/updating Bicep CLI via Azure CLI..."
-az bicep install | Out-Null
+& $azCommand.Source bicep install | Out-Null
 
 # Build all Bicep files recursively so module-level errors are caught early.
 $bicepFiles = Get-ChildItem -Path $IaCRoot -Recurse -Filter '*.bicep' -File
@@ -34,7 +48,7 @@ if (-not $bicepFiles) {
 foreach ($file in $bicepFiles) {
   Write-Host "[validate-iac] Building: $($file.FullName)"
   # Compile each file independently; this catches syntax, type, and module-reference errors.
-  az bicep build --file $file.FullName | Out-Null
+  & $azCommand.Source bicep build --file $file.FullName | Out-Null
 }
 
 Write-Host "[validate-iac] Success: all Bicep files compiled."
